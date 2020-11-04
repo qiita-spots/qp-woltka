@@ -44,6 +44,7 @@ install:
   - if [[ $woltka_version != *"0.1.1"* ]]; then echo "wrong woltka version", $woltka_version; exit 1; fi
   - if [[ $bowtie2_version != *"2.4.2"* ]]; then echo "wrong bowtie2 version", $bowtie2_version; exit 1; fi
   - configure_woltka --env-script 'source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/; export ENVIRONMENT="source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"' --server-cert $QIITA_SERVER_CERT
+  - export ENVIRONMENT="source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
 before_script:
   - source activate qiita
   - qiita plugins update
