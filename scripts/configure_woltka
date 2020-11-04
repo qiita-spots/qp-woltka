@@ -15,7 +15,7 @@ from qp_woltka import plugin
 
 @click.command()
 @click.option('--env-script', prompt='Environment script',
-              default='conda activate qp-woltka')
+              default='source activate qp-woltka')
 @click.option('--server-cert', prompt='Server certificate', default='None')
 def config(env_script, server_cert):
     """Generates the Qiita configuration files"""
