@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+
+# -----------------------------------------------------------------------------
+# Copyright (c) 2014--, The Qiita Development Team.
+#
+# Distributed under the terms of the BSD 3-clause License.
+#
+# The full license is in the file LICENSE, distributed with this software.
+# -----------------------------------------------------------------------------
+import click
+from subprocess import run, PIPE
+from os.path import dirname
+
+from qp_woltka import plugin
+from qp_woltka.woltka import woltka_to_array
+from qp_woltka.util import client_connect
+
+
+@click.command()
+@click.argument('url', required=True)
+@click.argument('job_id', required=True)
+@click.argument('out_dir', required=True)
+def execute(url, job_id, out_dir):
+    """Executes the task given by job_id and puts the output in output_dir"""
+    # there are basically 2 different kinds of jobs: register (commands)
+    # and everything else
+    if 'register' in job_id:
+        plugin(url, job_id, out_dir)
+    else:
+        qclient = client_connect(url)
+        job_info = qclient.get_job_info(job_id)
+        parameters = job_info['parameters']
+
+        qclient.update_job_step(
+            job_id, "Step 1 of 4: Collecting info and generating submission")
+        artifact_id = parameters['input']
+        del parameters['input']
+
+        # Get the artifact filepath information
+        artifact_info = qclient.get("/qiita_db/artifacts/%s/" % artifact_id)
+        # artifact_info['files'] returns a dict of {filetype: files} so we
+        # need to parse the actual input directory and make sure it's the same
+        # for all the files; it should _never_ be different but better to have
+        # a test for this
+        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+                     for ffs in fs}
+        if len(directory) != 1:
+            msg = ('There is more than one input directory [%s]; please '
+                   'contact qiita.help@gmail.com' % str(directory))
+            return False, None, msg
+        else:
+            directory = directory.pop()
+
+        # Get the artifact metadata
+        prep_info = qclient.get('/qiita_db/prep_template/%s/'
+                                % artifact_info['prep_information'][0])
+        prep_file = prep_info['prep-file']
+
+        # Getting all the files from the database
+        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+            directory, out_dir, parameters['Database'], prep_file, url, job_id)
+
+        # Submitting jobs and returning id
+        main_job = run(['qsub', main_qsub_fp], stdout=PIPE)
+        main_job_id = main_job.stdout.decode('utf8')
+        merge_job = run(['qsub', f'-W depend=afterany:{main_job_id}',
+                         merge_qsub_fp], stdout=PIPE)
+        merge_job_id = merge_job.stdout.decode('utf8')
+        print(f'{main_job_id}, {merge_job_id}')
+
+        qclient.update_job_step(
+            job_id, "Step 2 of 4: Aligning sequences")
+
+
+if __name__ == '__main__':
+    execute()

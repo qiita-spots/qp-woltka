@@ -1,0 +1,446 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2014--, The Qiita Development Team.
+#
+# Distributed under the terms of the BSD 3-clause License.
+#
+# The full license is in the file LICENSE, distributed with this software.
+# -----------------------------------------------------------------------------
+
+from unittest import main
+from qiita_client.testing import PluginTestCase
+from qiita_client import ArtifactInfo
+from os import remove, environ
+from os.path import exists, isdir, join, dirname
+from shutil import rmtree, copyfile
+from qp_woltka import plugin
+from tempfile import mkdtemp
+from json import dumps
+from qp_woltka.util import get_dbs, generate_woltka_dflt_params
+from qp_woltka.woltka import woltka_to_array, woltka
+
+
+class WoltkaTests(PluginTestCase):
+    def setUp(self):
+        plugin("https://localhost:21174", 'register', 'ignored')
+
+        out_dir = mkdtemp()
+        self.maxDiff = None
+        self.out_dir = out_dir
+        self.db_path = environ["QC_WOLTKA_DB_DP"]
+        self.params = {
+            'Database': join(self.db_path, 'rep82/5min'),
+        }
+        self._clean_up_files = []
+        self._clean_up_files.append(out_dir)
+        self.environment = environ["ENVIRONMENT"]
+
+    def tearDown(self):
+        for fp in self._clean_up_files:
+            if exists(fp):
+                if isdir(fp):
+                    rmtree(fp)
+                else:
+                    remove(fp)
+
+    def test_get_dbs(self):
+        db_path = self.db_path
+        obs = get_dbs(db_path)
+        exp = {'wol': join(db_path, 'wol/WoLmin'),
+               'rep82': join(db_path, 'rep82/5min')}
+
+        self.assertEqual(obs, exp)
+
+    def test_generate_woltka_dflt_params(self):
+        obs = generate_woltka_dflt_params()
+        exp = {'wol': {'Database': join(self.db_path, 'wol/WoLmin')},
+               'rep82': {'Database': join(self.db_path, 'rep82/5min')}}
+
+        self.assertEqual(obs, exp)
+
+    # Testing woltka with bowtie2
+    def _helper_woltka_bowtie(self):
+        # generating filepaths
+        in_dir = mkdtemp()
+        self._clean_up_files.append(in_dir)
+
+        fp1_1 = join(in_dir, 'S22205_S104_L001_R1_001.fastq.gz')
+        fp1_2 = join(in_dir, 'S22205_S104_L001_R2_001.fastq.gz')
+        fp2_1 = join(in_dir, 'S22282_S102_L001_R1_001.fastq.gz')
+        fp2_2 = join(in_dir, 'S22282_S102_L001_R2_001.fastq.gz')
+        source_dir = 'qp_woltka/support_files'
+        copyfile(f'{source_dir}/S22205_S104_L001_R1_001.fastq.gz', fp1_1)
+        copyfile(f'{source_dir}/S22205_S104_L001_R2_001.fastq.gz', fp1_2)
+        copyfile(f'{source_dir}/S22282_S102_L001_R1_001.fastq.gz', fp2_1)
+        copyfile(f'{source_dir}/S22282_S102_L001_R2_001.fastq.gz', fp2_2)
+
+        return fp1_1, fp1_2, fp2_1, fp2_2
+
+    def test_woltka_to_array_rep82(self):
+        # inserting new prep template
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+        data = {'prep_info': dumps(prep_info_dict),
+                # magic #1 = testing study
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        # inserting artifacts
+        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
+        data = {
+            'filepaths': dumps([
+                (fp1_1, 'raw_forward_seqs'),
+                (fp1_2, 'raw_reverse_seqs'),
+                (fp2_1, 'raw_forward_seqs'),
+                (fp2_2, 'raw_reverse_seqs')]),
+            'type': "per_sample_FASTQ",
+            'name': "Test Woltka artifact",
+            'prep': pid}
+        aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
+
+        self.params['input'] = aid
+        data = {'user': 'demo@microbio.me',
+                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
+                'status': 'running',
+                'parameters': dumps(self.params)}
+        job_id = self.qclient.post(
+            '/apitest/processing_job/', data=data)['job']
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # retriving info of the prep/artifact just created
+        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
+        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+                     for ffs in fs}
+        directory = directory.pop()
+        prep_info = artifact_info['prep_information']
+        prep_info = self.qclient.get(
+            '/qiita_db/prep_template/%s/' % prep_info[0])
+        prep_file = prep_info['prep-file']
+
+        url = 'this-is-my-url'
+        database = self.params['Database']
+        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+            directory, out_dir, database, prep_file, url, job_id)
+
+        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+
+        with open(main_qsub_fp) as f:
+            main_qsub = f.readlines()
+        with open(merge_qsub_fp) as f:
+            merge_qsub = f.readlines()
+
+        exp_main_qsub = [
+            '#!/bin/bash\n',
+            '#PBS -M qiita.help@gmail.com\n',
+            f'#PBS -N {job_id}\n',
+            '#PBS -l nodes=1:ppn=8\n',
+            '#PBS -l walltime=10:00:00\n',
+            '#PBS -l mem=64g\n',
+            f'#PBS -o {out_dir}/{job_id}_' '${PBS_ARRAYID}.log\n',
+            f'#PBS -e {out_dir}/{job_id}_' '${PBS_ARRAYID}.err\n',
+            '#PBS -t 1-2%8\n',
+            f'cd {out_dir}\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'offset=${PBS_ARRAYID}\n',
+            'step=$(( $offset - 0 ))\n',
+            'if [[ $step -gt 2 ]]; then exit 0; fi\n',
+            f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
+            ' | tail -n 1)\n',
+            "infile0=$(echo -e $args0 | awk '{ print $1 }')\n",
+            "outfile0=$(echo -e $args0 | awk '{ print $2 }')\n",
+            'set -e\n',
+            'cat $infile0*.fastq.gz > $outfile0.fastq.gz; bowtie2 -p 8 -x '
+            f'{database} -q $outfile0.fastq.gz -S $outfile0.sam --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify -i '
+            '$outfile0.sam -o $outfile0.woltka-taxa --no-demux --lineage '
+            f'{database}.tax --rank phylum,genus,species,free,none; xz -9 -T8 '
+            '-c $outfile0.sam > $outfile0.xz\n',
+            'set +e\n',
+            'date\n']
+        self.assertEqual(main_qsub, exp_main_qsub)
+
+        exp_merge_qsub = [
+            '#!/bin/bash\n',
+            '#PBS -M qiita.help@gmail.com\n',
+            f'#PBS -N merge-{job_id}\n',
+            '#PBS -l nodes=1:ppn=6\n',
+            '#PBS -l walltime=4:00:00\n',
+            '#PBS -l mem=48g\n',
+            f'#PBS -o {out_dir}/merge-{job_id}.log\n',
+            f'#PBS -e {out_dir}/merge-{job_id}.err\n',
+            f'cd {out_dir}\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'set -e\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'genus --glob "*.woltka-taxa/genus.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'species --glob "*.woltka-taxa/species.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'free --glob "*.woltka-taxa/free.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'none --glob "*.woltka-taxa/none.biom" --rename &\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
+            'wait\n',
+            f'finish_woltka {url} {job_id}\n',
+            'date\n']
+        self.assertEqual(merge_qsub, exp_merge_qsub)
+
+        # now let's test that if finished correctly
+        sdir = 'qp_woltka/support_files/'
+        copyfile(f'{sdir}/genus.biom', f'{out_dir}/genus.biom')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
+        copyfile(f'{sdir}/species.biom', f'{out_dir}/species.biom')
+        copyfile(f'{sdir}/phylum.biom', f'{out_dir}/phylum.biom')
+        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
+        copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
+
+        success, ainfo, msg = woltka(
+            self.qclient, job_id, self.params, out_dir)
+
+        self.assertEqual("", msg)
+        self.assertTrue(success)
+
+        exp = [
+            ArtifactInfo('Alignment Profile', 'BIOM',
+                         [(f'{out_dir}/free.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log')]),
+            ArtifactInfo('Taxonomic Predictions - phylum', 'BIOM',
+                         [(f'{out_dir}/phylum.biom', 'biom')]),
+            ArtifactInfo('Taxonomic Predictions - genus', 'BIOM',
+                         [(f'{out_dir}/genus.biom', 'biom')]),
+            ArtifactInfo('Taxonomic Predictions - species', 'BIOM',
+                         [(f'{out_dir}/species.biom', 'biom')]),
+            ArtifactInfo('Per genome Predictions', 'BIOM',
+                         [(f'{out_dir}/none.biom', 'biom')])]
+
+        self.assertCountEqual(ainfo, exp)
+
+    def test_woltka_to_array_wol(self):
+        # inserting new prep template
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+        data = {'prep_info': dumps(prep_info_dict),
+                # magic #1 = testing study
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        # inserting artifacts
+        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
+        data = {
+            'filepaths': dumps([
+                (fp1_1, 'raw_forward_seqs'),
+                (fp1_2, 'raw_reverse_seqs'),
+                (fp2_1, 'raw_forward_seqs'),
+                (fp2_2, 'raw_reverse_seqs')]),
+            'type': "per_sample_FASTQ",
+            'name': "Test Woltka artifact",
+            'prep': pid}
+        aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
+
+        database = join(self.db_path, 'wol/WoLmin')
+        self.params['input'] = aid
+        self.params['Database'] = database
+        data = {'user': 'demo@microbio.me',
+                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
+                'status': 'running',
+                'parameters': dumps(self.params)}
+        job_id = self.qclient.post(
+            '/apitest/processing_job/', data=data)['job']
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # retriving info of the prep/artifact just created
+        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
+        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+                     for ffs in fs}
+        directory = directory.pop()
+        prep_info = artifact_info['prep_information']
+        prep_info = self.qclient.get(
+            '/qiita_db/prep_template/%s/' % prep_info[0])
+        prep_file = prep_info['prep-file']
+
+        url = 'this-is-my-url'
+        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+            directory, out_dir, database, prep_file, url, job_id)
+
+        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+
+        with open(main_qsub_fp) as f:
+            main_qsub = f.readlines()
+        with open(merge_qsub_fp) as f:
+            merge_qsub = f.readlines()
+
+        exp_main_qsub = [
+            '#!/bin/bash\n',
+            '#PBS -M qiita.help@gmail.com\n',
+            f'#PBS -N {job_id}\n',
+            '#PBS -l nodes=1:ppn=8\n',
+            '#PBS -l walltime=10:00:00\n',
+            '#PBS -l mem=64g\n',
+            f'#PBS -o {out_dir}/{job_id}_' '${PBS_ARRAYID}.log\n',
+            f'#PBS -e {out_dir}/{job_id}_' '${PBS_ARRAYID}.err\n',
+            '#PBS -t 1-2%8\n',
+            f'cd {out_dir}\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'offset=${PBS_ARRAYID}\n',
+            'step=$(( $offset - 0 ))\n',
+            'if [[ $step -gt 2 ]]; then exit 0; fi\n',
+            f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
+            ' | tail -n 1)\n',
+            "infile0=$(echo -e $args0 | awk '{ print $1 }')\n",
+            "outfile0=$(echo -e $args0 | awk '{ print $2 }')\n",
+            'set -e\n',
+            'cat $infile0*.fastq.gz > $outfile0.fastq.gz; bowtie2 -p 8 -x '
+            f'{database} -q $outfile0.fastq.gz -S $outfile0.sam --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify '
+            '-i $outfile0.sam -o $outfile0.woltka-taxa --no-demux '
+            f'--lineage {database}.tax --rank phylum,genus,species,free,none; '
+            f'woltka classify -i $outfile0.sam -c {database}.coords '
+            '-o $outfile0.woltka-per-gene --no-demux; xz -9 -T8 -c '
+            '$outfile0.sam > $outfile0.xz\n',
+            'set +e\n',
+            'date\n']
+        self.assertEqual(main_qsub, exp_main_qsub)
+
+        exp_merge_qsub = [
+            '#!/bin/bash\n',
+            '#PBS -M qiita.help@gmail.com\n',
+            f'#PBS -N merge-{job_id}\n',
+            '#PBS -l nodes=1:ppn=7\n',
+            '#PBS -l walltime=4:00:00\n',
+            '#PBS -l mem=48g\n',
+            f'#PBS -o {out_dir}/merge-{job_id}.log\n',
+            f'#PBS -e {out_dir}/merge-{job_id}.err\n',
+            f'cd {out_dir}\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'set -e\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'genus --glob "*.woltka-taxa/genus.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'species --glob "*.woltka-taxa/species.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'free --glob "*.woltka-taxa/free.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'none --glob "*.woltka-taxa/none.biom" &\n',
+            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            'per-gene --glob "*.woltka-per-gene" --rename &\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
+            'wait\n',
+            f'finish_woltka {url} {job_id}\n',
+            'date\n']
+        self.assertEqual(merge_qsub, exp_merge_qsub)
+
+        # now let's test that if finished correctly
+        sdir = 'qp_woltka/support_files/'
+        copyfile(f'{sdir}/genus.biom', f'{out_dir}/genus.biom')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
+        copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
+        copyfile(f'{sdir}/species.biom', f'{out_dir}/species.biom')
+        copyfile(f'{sdir}/phylum.biom', f'{out_dir}/phylum.biom')
+        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
+        copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
+
+        success, ainfo, msg = woltka(
+            self.qclient, job_id, self.params, out_dir)
+
+        self.assertEqual("", msg)
+        self.assertTrue(success)
+
+        exp = [
+            ArtifactInfo('Alignment Profile', 'BIOM',
+                         [(f'{out_dir}/free.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log')]),
+            ArtifactInfo('Taxonomic Predictions - phylum', 'BIOM',
+                         [(f'{out_dir}/phylum.biom', 'biom')]),
+            ArtifactInfo('Taxonomic Predictions - genus', 'BIOM',
+                         [(f'{out_dir}/genus.biom', 'biom')]),
+            ArtifactInfo('Taxonomic Predictions - species', 'BIOM',
+                         [(f'{out_dir}/species.biom', 'biom')]),
+            ArtifactInfo('Per genome Predictions', 'BIOM',
+                         [(f'{out_dir}/none.biom', 'biom')]),
+            ArtifactInfo('Per gene Predictions', 'BIOM',
+                         [(f'{out_dir}/per-gene.biom', 'biom')])]
+
+        self.assertCountEqual(ainfo, exp)
+
+    def test_woltka_to_array_error(self):
+        # inserting new prep template
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+        data = {'prep_info': dumps(prep_info_dict),
+                # magic #1 = testing study
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        # inserting artifacts
+        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
+        data = {
+            'filepaths': dumps([
+                (fp1_1, 'raw_forward_seqs'),
+                (fp1_2, 'raw_reverse_seqs'),
+                (fp2_1, 'raw_forward_seqs'),
+                (fp2_2, 'raw_reverse_seqs')]),
+            'type': "per_sample_FASTQ",
+            'name': "Test Woltka artifact",
+            'prep': pid}
+        aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
+
+        database = join(self.db_path, 'wol/WoLmin')
+        self.params['input'] = aid
+        self.params['Database'] = database
+        data = {'user': 'demo@microbio.me',
+                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
+                'status': 'running',
+                'parameters': dumps(self.params)}
+        job_id = self.qclient.post(
+            '/apitest/processing_job/', data=data)['job']
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        success, ainfo, msg = woltka(
+            self.qclient, job_id, self.params, out_dir)
+
+        exp_msg = '\n'.join([
+            'Missing files from the "Alignment Profile"; please contact '
+            'qiita.help@gmail.com for more information',
+            'Table phylum wasnot created, please contact qiita.help@gmail.com '
+            'for more information',
+            'Table genus wasnot created, please contact qiita.help@gmail.com '
+            'for more information',
+            'Table species wasnot created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table none/per-genome wasnot created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table per-gene was not created, please contact '
+            'qiita.help@gmail.com for more information'])
+        self.assertEqual(exp_msg, msg)
+        self.assertFalse(success)
+
+
+if __name__ == '__main__':
+    main()
