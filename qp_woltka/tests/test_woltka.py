@@ -48,14 +48,14 @@ class WoltkaTests(PluginTestCase):
         exp = {'wol': join(db_path, 'wol/WoLmin'),
                'rep82': join(db_path, 'rep82/5min')}
 
-        self.assertEqual(obs, exp)
+        self.assertDictEqual(obs, exp)
 
     def test_generate_woltka_dflt_params(self):
         obs = generate_woltka_dflt_params()
         exp = {'wol': {'Database': join(self.db_path, 'wol/WoLmin')},
                'rep82': {'Database': join(self.db_path, 'rep82/5min')}}
 
-        self.assertEqual(obs, exp)
+        self.assertDictEqual(obs, exp)
 
     # Testing woltka with bowtie2
     def _helper_woltka_bowtie(self):
