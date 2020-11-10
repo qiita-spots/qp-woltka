@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2014--, The Qiita Development Team.
+# Copyright (c) 2020--, The Qiita Development Team.
 #
 # Distributed under the terms of the BSD 3-clause License.
 #
@@ -13,7 +13,7 @@ import re
 
 from qiita_client import ArtifactInfo
 
-# number of threads per job
+# resources per job
 PPN = 8
 MEMORY = '64g'
 WALLTIME = '10:00:00'

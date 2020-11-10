@@ -18,8 +18,8 @@ _common_options = [
     click.option('--directory', type=click.Path(exists=True),
                  help='The path to obtain files from', required=False),
     click.option('--files', multiple=True, type=str, required=False,
-                 help='Specific entries to use as infiles, assumes absolute '
-                      'paths, incompatible with --directory'),
+                 help='Specific entries to use as input files, assumes '
+                 'absolute paths, incompatible with --directory'),
     click.option('--output', type=click.Path(exists=False),
                  help='The path to write output to', required=True),
     click.option('--output-extension', type=str,
