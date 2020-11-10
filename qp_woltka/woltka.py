@@ -215,6 +215,8 @@ def woltka_to_array(directory, output, database_bowtie2,
                                 '--glob "*.woltka-per-gene"',
                                 '--rename &']))  # run all at once
     else:
+        # for "simplicity" we will inject the `--rename` flag to the last
+        # merge command (between all the parameters and the last &)
         m = merges[-1].split(' ')
         merges[-1] = " ".join(m[:-1] + ['--rename'] + [m[-1]])
     merges.append(f'cd {output}; tar -cvf alignment.tar *.sam.xz &')
