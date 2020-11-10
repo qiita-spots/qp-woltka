@@ -6,8 +6,6 @@ import glob as glob_
 import pandas as pd
 import h5py
 import click
-from functools import reduce
-from operator import or_
 
 
 @click.command()
