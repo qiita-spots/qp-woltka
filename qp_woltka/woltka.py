@@ -242,7 +242,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              'set -e',
              '\n'.join(merges),
              "wait",
-             f'finish_woltka {url} {name}\n'
+             f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
 
     # construct the job array
