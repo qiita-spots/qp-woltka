@@ -5,6 +5,8 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
+import pandas as pd
+
 from math import ceil
 from os import environ
 from os.path import join, basename, exists
@@ -150,17 +152,17 @@ def woltka_to_array(directory, output, database_bowtie2,
 
     # determine per-sample prefixes. force *.fastq.gz here for the glob
     # as that's what the per-sample shotgun data are...
-    splitter = re.compile(r'[._]R[12][._]')
-    bns = set()
-    for f in glob(join(directory, '*.fastq.gz')):
-        sample = basename(f)
-        hit = splitter.search(sample)
-        if hit is None:
-            raise ValueError('%s appears malformed' % sample)
-        else:
-            prefix = sample[:hit.span()[0]]
-            bns.add(join(directory, prefix))
-    kwargs['files'] = list(bns)
+    prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
+
+    if 'run_prefix' not in prep.columns():
+        raise ValueError(
+            'Prep information is missing the required run_prefix column')
+
+    if len(prep.run_prefix.unique()) != prep.shape[12]:
+        raise ValueError(
+            'The run_prefix values are not unique for each sample')
+
+    kwargs['files'] = [join(directory, rp) for rp in prep.run_prefix.values]
 
     # woltka assumes R1 and R2 are combined even though it doesn't use the
     # paired end data, so let's concatenate based off the prefixes first.
