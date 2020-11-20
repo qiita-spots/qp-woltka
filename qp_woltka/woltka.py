@@ -154,7 +154,7 @@ def woltka_to_array(directory, output, database_bowtie2,
     # as that's what the per-sample shotgun data are...
     prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
 
-    if 'run_prefix' not in prep.columns():
+    if 'run_prefix' not in prep.columns:
         raise ValueError(
             'Prep information is missing the required run_prefix column')
 
