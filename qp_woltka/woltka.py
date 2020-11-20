@@ -158,7 +158,7 @@ def woltka_to_array(directory, output, database_bowtie2,
         raise ValueError(
             'Prep information is missing the required run_prefix column')
 
-    if len(prep.run_prefix.unique()) != prep.shape[12]:
+    if len(prep.run_prefix.unique()) != prep.shape[0]:
         raise ValueError(
             'The run_prefix values are not unique for each sample')
 
