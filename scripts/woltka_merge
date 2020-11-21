@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import os
+import biom
+import glob as glob_
+import pandas as pd
+import h5py
+import click
+
+
+@click.command()
+@click.option('--prep', type=click.Path(exists=True), required=True)
+@click.option('--base', type=click.Path(exists=True), required=True)
+@click.option('--glob', type=str, required=True)
+@click.option('--name', type=str, required=True)
+@click.option('--rename/--no-rename', type=bool, default=False)
+def merge(prep, base, glob, name, rename):
+    prep = pd.read_csv(prep, sep='\t', dtype=str)
+    prefix_to_name = prep.set_index('run_prefix')['sample_name'].to_dict()
+
+    search = os.path.join(base, glob)
+    tables = [biom.load_table(f) for f in glob_.glob(search)]
+    table = biom.concat(tables)
+
+    with_extension = {}
+    for i in table.ids():
+        extension_stripped = i.split('.sam')[0]
+        assert extension_stripped in prefix_to_name
+        sname = prefix_to_name[extension_stripped]
+        with_extension[i] = sname
+        if rename:
+            os.rename(os.path.join(base, '%s.xz' % i),
+                      os.path.join(base, '%s.sam.xz' % sname))
+
+    collapsed = table.update_ids(with_extension)
+
+    with h5py.File(f'{base}/{name}.biom', 'w') as out:
+        collapsed.to_hdf5(out, 'fast-merge')
+
+
+if __name__ == '__main__':
+    merge()
