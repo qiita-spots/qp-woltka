@@ -296,7 +296,7 @@ def woltka(qclient, job_id, parameters, out_dir):
             ainfo.append(ArtifactInfo(f'Taxonomic Predictions - {rank}',
                                       'BIOM', [(fp, 'biom')]))
         else:
-            errors.append(f'Table {rank} wasnot created, please contact '
+            errors.append(f'Table {rank} was not created, please contact '
                           'qiita.help@gmail.com for more information')
 
     fp_biom = f'{out_dir}/none.biom'
@@ -304,7 +304,7 @@ def woltka(qclient, job_id, parameters, out_dir):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
             (fp_biom, 'biom')]))
     else:
-        errors.append('Table none/per-genome wasnot created, please contact '
+        errors.append('Table none/per-genome was not created, please contact '
                       'qiita.help@gmail.com for more information')
 
     if database_gene_coordinates is not None:

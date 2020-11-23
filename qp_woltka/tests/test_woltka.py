@@ -380,13 +380,13 @@ class WoltkaTests(PluginTestCase):
         exp_msg = '\n'.join([
             'Missing files from the "Alignment Profile"; please contact '
             'qiita.help@gmail.com for more information',
-            'Table phylum wasnot created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table genus wasnot created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table species wasnot created, please contact '
+            'Table phylum was not created, please contact '
             'qiita.help@gmail.com for more information',
-            'Table none/per-genome wasnot created, please contact '
+            'Table genus was not created, please contact qiita.help@gmail.com '
+            'for more information',
+            'Table species was not created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '
             'qiita.help@gmail.com for more information'])
