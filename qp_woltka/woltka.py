@@ -26,7 +26,7 @@ MAX_RUNNING = 8
 
 # this is a almost exact copy/paste from the original
 # qp_woltka/support_files/to-job-array.py
-def _to_array(directory, output, glob, max_running, ppn, walltime, environment,
+def _to_array(directory, output, max_running, ppn, walltime, environment,
               command_format, memory, name, output_extension, files):
     # sanity checking
     assert len(files) > 0
@@ -138,7 +138,6 @@ def woltka_to_array(directory, output, database_bowtie2,
     environment = environ["ENVIRONMENT"]
     kwargs = {'directory': directory,
               'output': output,
-              'glob': '*.fastq.gz',
               'max_running': MAX_RUNNING,
               'ppn': PPN,
               'walltime': WALLTIME,
@@ -150,8 +149,6 @@ def woltka_to_array(directory, output, database_bowtie2,
     database_taxonomy, database_gene_coordinates = _process_database_files(
         database_bowtie2)
 
-    # determine per-sample prefixes. force *.fastq.gz here for the glob
-    # as that's what the per-sample shotgun data are...
     prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
 
     if 'run_prefix' not in prep.columns:
