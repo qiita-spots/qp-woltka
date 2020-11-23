@@ -57,9 +57,14 @@ class WoltkaTests(PluginTestCase):
 
         self.assertDictEqual(obs, exp)
 
-    # Testing woltka with bowtie2
-    def _helper_woltka_bowtie(self):
-        # generating filepaths
+    def _helper_woltka_bowtie(self, prep_info_dict, database=None):
+        data = {'prep_info': dumps(prep_info_dict),
+                # magic #1 = testing study
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        # inserting artifacts
         in_dir = mkdtemp()
         self._clean_up_files.append(in_dir)
 
@@ -73,21 +78,6 @@ class WoltkaTests(PluginTestCase):
         copyfile(f'{source_dir}/S22282_S102_L001_R1_001.fastq.gz', fp2_1)
         copyfile(f'{source_dir}/S22282_S102_L001_R2_001.fastq.gz', fp2_2)
 
-        return fp1_1, fp1_2, fp2_1, fp2_2
-
-    def test_woltka_to_array_rep82(self):
-        # inserting new prep template
-        prep_info_dict = {
-            'SKB8.640193': {'run_prefix': 'S22205_S104'},
-            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
-        data = {'prep_info': dumps(prep_info_dict),
-                # magic #1 = testing study
-                'study': 1,
-                'data_type': 'Metagenomic'}
-        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
-
-        # inserting artifacts
-        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
         data = {
             'filepaths': dumps([
                 (fp1_1, 'raw_forward_seqs'),
@@ -100,12 +90,25 @@ class WoltkaTests(PluginTestCase):
         aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
 
         self.params['input'] = aid
+
+        if database is not None:
+            self.params['Database'] = database
+
         data = {'user': 'demo@microbio.me',
                 'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
                 'status': 'running',
                 'parameters': dumps(self.params)}
         job_id = self.qclient.post(
             '/apitest/processing_job/', data=data)['job']
+
+        return pid, aid, job_id
+
+    def test_woltka_to_array_rep82(self):
+        # inserting new prep template
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
 
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
@@ -229,36 +232,11 @@ class WoltkaTests(PluginTestCase):
     def test_woltka_to_array_wol(self):
         # inserting new prep template
         prep_info_dict = {
-            'SKB8.640193': {'run_prefix': 'S22205_S104'},
-            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
-        data = {'prep_info': dumps(prep_info_dict),
-                # magic #1 = testing study
-                'study': 1,
-                'data_type': 'Metagenomic'}
-        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
-
-        # inserting artifacts
-        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
-        data = {
-            'filepaths': dumps([
-                (fp1_1, 'raw_forward_seqs'),
-                (fp1_2, 'raw_reverse_seqs'),
-                (fp2_1, 'raw_forward_seqs'),
-                (fp2_2, 'raw_reverse_seqs')]),
-            'type': "per_sample_FASTQ",
-            'name': "Test Woltka artifact",
-            'prep': pid}
-        aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
-
+            'SKB8.640193': {'run_prefix': 'S22205_S104_L001_R1'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102_L001_R1'}}
         database = join(self.db_path, 'wol/WoLmin')
-        self.params['input'] = aid
-        self.params['Database'] = database
-        data = {'user': 'demo@microbio.me',
-                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
-                'status': 'running',
-                'parameters': dumps(self.params)}
-        job_id = self.qclient.post(
-            '/apitest/processing_job/', data=data)['job']
+
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict, database)
 
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
@@ -390,34 +368,8 @@ class WoltkaTests(PluginTestCase):
         prep_info_dict = {
             'SKB8.640193': {'run_prefix': 'S22205_S104'},
             'SKD8.640184': {'run_prefix': 'S22282_S102'}}
-        data = {'prep_info': dumps(prep_info_dict),
-                # magic #1 = testing study
-                'study': 1,
-                'data_type': 'Metagenomic'}
-        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
-
-        # inserting artifacts
-        fp1_1, fp1_2, fp2_1, fp2_2 = self._helper_woltka_bowtie()
-        data = {
-            'filepaths': dumps([
-                (fp1_1, 'raw_forward_seqs'),
-                (fp1_2, 'raw_reverse_seqs'),
-                (fp2_1, 'raw_forward_seqs'),
-                (fp2_2, 'raw_reverse_seqs')]),
-            'type': "per_sample_FASTQ",
-            'name': "Test Woltka artifact",
-            'prep': pid}
-        aid = self.qclient.post('/apitest/artifact/', data=data)['artifact']
-
         database = join(self.db_path, 'wol/WoLmin')
-        self.params['input'] = aid
-        self.params['Database'] = database
-        data = {'user': 'demo@microbio.me',
-                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
-                'status': 'running',
-                'parameters': dumps(self.params)}
-        job_id = self.qclient.post(
-            '/apitest/processing_job/', data=data)['job']
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict, database)
 
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
@@ -428,18 +380,72 @@ class WoltkaTests(PluginTestCase):
         exp_msg = '\n'.join([
             'Missing files from the "Alignment Profile"; please contact '
             'qiita.help@gmail.com for more information',
-            'Table phylum wasnot created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table genus wasnot created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table species wasnot created, please contact '
+            'Table phylum was not created, please contact '
             'qiita.help@gmail.com for more information',
-            'Table none/per-genome wasnot created, please contact '
+            'Table genus was not created, please contact qiita.help@gmail.com '
+            'for more information',
+            'Table species was not created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '
             'qiita.help@gmail.com for more information'])
         self.assertEqual(exp_msg, msg)
         self.assertFalse(success)
+
+    def test_creation_error_no_run_prefix(self):
+        # run prefix doesn't exist
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix_bla': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix_bla': 'S22282_S102'}}
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # retriving info of the prep/artifact just created
+        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
+        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+                     for ffs in fs}
+        directory = directory.pop()
+        prep_info = artifact_info['prep_information']
+        prep_info = self.qclient.get(
+            '/qiita_db/prep_template/%s/' % prep_info[0])
+        prep_file = prep_info['prep-file']
+
+        url = 'this-is-my-url'
+        with self.assertRaises(ValueError) as error:
+            woltka_to_array(directory, out_dir, self.params['Database'],
+                            prep_file, url, job_id)
+        self.assertEqual(str(error.exception), "Prep information is missing "
+                         "the required run_prefix column")
+
+    def test_creation_error_no_unique_run_prefix(self):
+        # run prefix doesn't exist
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22205_S104'}}
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # retriving info of the prep/artifact just created
+        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
+        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+                     for ffs in fs}
+        directory = directory.pop()
+        prep_info = artifact_info['prep_information']
+        prep_info = self.qclient.get(
+            '/qiita_db/prep_template/%s/' % prep_info[0])
+        prep_file = prep_info['prep-file']
+
+        url = 'this-is-my-url'
+        with self.assertRaises(ValueError) as error:
+            woltka_to_array(directory, out_dir, self.params['Database'],
+                            prep_file, url, job_id)
+        self.assertEqual(str(error.exception), "The run_prefix values are "
+                         "not unique for each sample")
 
 
 if __name__ == '__main__':

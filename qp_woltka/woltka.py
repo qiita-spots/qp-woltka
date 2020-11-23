@@ -5,6 +5,8 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
+import pandas as pd
+
 from math import ceil
 from os import environ
 from os.path import join, basename, exists
@@ -24,7 +26,7 @@ MAX_RUNNING = 8
 
 # this is a almost exact copy/paste from the original
 # qp_woltka/support_files/to-job-array.py
-def _to_array(directory, output, glob, max_running, ppn, walltime, environment,
+def _to_array(directory, output, max_running, ppn, walltime, environment,
               command_format, memory, name, output_extension, files):
     # sanity checking
     assert len(files) > 0
@@ -136,7 +138,6 @@ def woltka_to_array(directory, output, database_bowtie2,
     environment = environ["ENVIRONMENT"]
     kwargs = {'directory': directory,
               'output': output,
-              'glob': '*.fastq.gz',
               'max_running': MAX_RUNNING,
               'ppn': PPN,
               'walltime': WALLTIME,
@@ -148,19 +149,17 @@ def woltka_to_array(directory, output, database_bowtie2,
     database_taxonomy, database_gene_coordinates = _process_database_files(
         database_bowtie2)
 
-    # determine per-sample prefixes. force *.fastq.gz here for the glob
-    # as that's what the per-sample shotgun data are...
-    splitter = re.compile(r'[._]R[12][._]')
-    bns = set()
-    for f in glob(join(directory, '*.fastq.gz')):
-        sample = basename(f)
-        hit = splitter.search(sample)
-        if hit is None:
-            raise ValueError('%s appears malformed' % sample)
-        else:
-            prefix = sample[:hit.span()[0]]
-            bns.add(join(directory, prefix))
-    kwargs['files'] = list(bns)
+    prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
+
+    if 'run_prefix' not in prep.columns:
+        raise ValueError(
+            'Prep information is missing the required run_prefix column')
+
+    if len(prep.run_prefix.unique()) != prep.shape[0]:
+        raise ValueError(
+            'The run_prefix values are not unique for each sample')
+
+    kwargs['files'] = [join(directory, rp) for rp in prep.run_prefix.values]
 
     # woltka assumes R1 and R2 are combined even though it doesn't use the
     # paired end data, so let's concatenate based off the prefixes first.
@@ -297,7 +296,7 @@ def woltka(qclient, job_id, parameters, out_dir):
             ainfo.append(ArtifactInfo(f'Taxonomic Predictions - {rank}',
                                       'BIOM', [(fp, 'biom')]))
         else:
-            errors.append(f'Table {rank} wasnot created, please contact '
+            errors.append(f'Table {rank} was not created, please contact '
                           'qiita.help@gmail.com for more information')
 
     fp_biom = f'{out_dir}/none.biom'
@@ -305,7 +304,7 @@ def woltka(qclient, job_id, parameters, out_dir):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
             (fp_biom, 'biom')]))
     else:
-        errors.append('Table none/per-genome wasnot created, please contact '
+        errors.append('Table none/per-genome was not created, please contact '
                       'qiita.help@gmail.com for more information')
 
     if database_gene_coordinates is not None:
