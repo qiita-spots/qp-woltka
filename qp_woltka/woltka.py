@@ -303,7 +303,7 @@ def woltka(qclient, job_id, parameters, out_dir):
                         for x in bt.ids(axis='observation')}
             bt.add_metadata(metadata, axis='observation')
             with biom_open(fp, 'w') as f:
-                bt.to_hdf5(f, "shogun")
+                bt.to_hdf5(f, "woltka")
 
             ainfo.append(ArtifactInfo(f'Taxonomic Predictions - {rank}',
                                       'BIOM', [(fp, 'biom')]))
