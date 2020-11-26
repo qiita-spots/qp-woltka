@@ -11,6 +11,8 @@ from math import ceil
 from os import environ
 from os.path import join, basename, exists
 from glob import glob
+from biom.util import biom_open
+from biom import load_table
 import re
 
 from qiita_client import ArtifactInfo
@@ -292,7 +294,16 @@ def woltka(qclient, job_id, parameters, out_dir):
 
     for rank in ['phylum', 'genus', 'species']:
         fp = f'{out_dir}/{rank}.biom'
+
         if exists(fp):
+            # making sure that the tables have taxonomy
+            bt = load_table(fp)
+            metadata = {x: {'taxonomy': x.split(';')}
+                        for x in bt.ids(axis='observation')}
+            bt.add_metadata(metadata, axis='observation')
+            with biom_open(fp, 'w') as f:
+                bt.to_hdf5(f, "woltka")
+
             ainfo.append(ArtifactInfo(f'Taxonomic Predictions - {rank}',
                                       'BIOM', [(fp, 'biom')]))
         else:

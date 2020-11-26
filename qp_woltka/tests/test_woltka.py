@@ -12,9 +12,11 @@ from qiita_client import ArtifactInfo
 from os import remove, environ
 from os.path import exists, isdir, join, dirname
 from shutil import rmtree, copyfile
-from qp_woltka import plugin
 from tempfile import mkdtemp
 from json import dumps
+from biom import load_table
+
+from qp_woltka import plugin
 from qp_woltka.util import get_dbs, generate_woltka_dflt_params
 from qp_woltka.woltka import woltka_to_array, woltka
 
@@ -362,6 +364,12 @@ class WoltkaTests(PluginTestCase):
                          [(f'{out_dir}/per-gene.biom', 'biom')])]
 
         self.assertCountEqual(ainfo, exp)
+
+        # check that the produced table have feature taxonomy
+        bt = load_table(f'{out_dir}/phylum.biom')
+        self.assertCountEqual(
+            bt.metadata_to_dataframe('observation').columns,
+            ['taxonomy_0', 'taxonomy_1'])
 
     def test_woltka_to_array_error(self):
         # inserting new prep template
