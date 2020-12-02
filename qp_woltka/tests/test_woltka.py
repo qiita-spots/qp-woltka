@@ -175,7 +175,7 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#PBS -M qiita.help@gmail.com\n',
             f'#PBS -N merge-{job_id}\n',
-            '#PBS -l nodes=1:ppn=6\n',
+            '#PBS -l nodes=1:ppn=5\n',
             '#PBS -l walltime=4:00:00\n',
             '#PBS -l mem=48g\n',
             f'#PBS -o {out_dir}/merge-{job_id}.log\n',
@@ -196,7 +196,7 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
             'wait\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)
@@ -304,7 +304,7 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#PBS -M qiita.help@gmail.com\n',
             f'#PBS -N merge-{job_id}\n',
-            '#PBS -l nodes=1:ppn=7\n',
+            '#PBS -l nodes=1:ppn=6\n',
             '#PBS -l walltime=4:00:00\n',
             '#PBS -l mem=48g\n',
             f'#PBS -o {out_dir}/merge-{job_id}.log\n',
@@ -327,7 +327,7 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)
