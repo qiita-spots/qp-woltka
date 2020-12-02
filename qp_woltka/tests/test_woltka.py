@@ -195,8 +195,8 @@ class WoltkaTests(PluginTestCase):
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
             'wait\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)
@@ -326,8 +326,8 @@ class WoltkaTests(PluginTestCase):
             'none --glob "*.woltka-taxa/none.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
             'wait\n',
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz &\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)

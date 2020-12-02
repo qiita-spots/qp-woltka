@@ -220,7 +220,6 @@ def woltka_to_array(directory, output, database_bowtie2,
         # merge command (between all the parameters and the last &)
         m = merges[-1].split(' ')
         merges[-1] = " ".join(m[:-1] + ['--rename'] + [m[-1]])
-    merges.append(f'cd {output}; tar -cvf alignment.tar *.sam.xz &')
 
     # The merge for a HiSeq 2000 lane was 40 seconds and ~150MB of memory.
     # But, let's over request just in case (and this is a very small request
@@ -243,6 +242,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              'set -e',
              '\n'.join(merges),
              "wait",
+             f'cd {output}; tar -cvf alignment.tar *.sam.xz',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
 
