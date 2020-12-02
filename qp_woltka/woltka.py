@@ -242,7 +242,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              'set -e',
              '\n'.join(merges),
              "wait",
-             f'cd {output}; tar -cvf alignment.tar *.sam.xz\n',
+             f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
 
