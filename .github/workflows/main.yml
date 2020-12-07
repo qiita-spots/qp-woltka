@@ -1,0 +1,81 @@
+name: qp-woltka CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: flake8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.6
+    - name: Install dependencies
+      run: python -m pip install --upgrade pip
+    - name: lint
+      run: |
+        pip install -q flake8
+        flake8 qp_fastp_minimap2 setup.py scripts/*
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        python-version: 3.7
+    - name: Install dependencies
+      shell: bash -l {0}
+      run: |
+        # installing qiita environment
+        conda config --add channels anaconda
+        conda config --add channels conda-forge
+        travis_retry conda create -q --yes -n qiita python=3.6 pip libgfortran numpy nginx cython
+        source activate qiita
+        pip install sphinx sphinx-bootstrap-theme coveralls
+        pip install https://github.com/biocore/qiita/archive/dev.zip --no-binary redbiom
+        sed 's/PORT = 7777/PORT = 6379/g' ${HOME}/miniconda3/envs/qiita/lib/python3.6/site-packages/qiita_core/support_files/config_test.cfg > config_test.cfg
+        export QIITA_CONFIG_FP=${PWD}/config_test.cfg
+        # starting nginx
+        # mkdir /home/travis/miniconda3/envs/qiita/var/run/nginx/
+        wget https://github.com/biocore/qiita/archive/dev.zip -O qiita-dev.zip
+        unzip qiita-dev.zip
+        nginx -c ${PWD}/qiita-dev/qiita_pet/nginx_example.conf
+        qiita-env make --no-load-ontologies
+        source deactivate
+        # installing qp-woltka
+        conda config --add channels bioconda
+        conda create --yes -n qp-woltka biom-format bowtie2
+        source activate qp-woltka
+        pip install -U pip pip nose flake8
+        pip install sphinx sphinx-bootstrap-theme nose-timer codecov biopython
+        pip install https://github.com/qiita-spots/qiita_client/archive/master.zip
+        export QIITA_SERVER_CERT=$HOME/miniconda3/envs/qiita/lib/python3.6/site-packages/qiita_core/support_files/server.crt
+        pip install .
+        export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/
+        for file in $(ls $QC_WOLTKA_DB_DP); do tar xvzf $QC_WOLTKA_DB_DP$file -C $QC_WOLTKA_DB_DP; done
+        # making sure we have the correct software versions
+        woltka_version=`woltka --version`
+        bowtie2_version=`bowtie2 --version`
+        if [[ $woltka_version != *"0.1.1"* ]]; then echo "wrong woltka version", $woltka_version; exit 1; fi
+        if [[ $bowtie2_version != *"2.4.2"* ]]; then echo "wrong bowtie2 version", $bowtie2_version; exit 1; fi
+        configure_woltka --env-script 'source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/; export ENVIRONMENT="source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"' --server-cert $QIITA_SERVER_CERT
+        export ENVIRONMENT="source ~/.bash_profile; source activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
+    - name: Start server
+      shell: bash -l {0}
+      run: |
+        source activate qiita
+        qiita plugins update
+        supervisord -c ${PWD}/qiita-dev/qiita_pet/supervisor_example.conf
+        sleep 10 # give enough time to the webserver to start
+        cat /tmp/supervisord.log
+    - name: Tests server
+      shell: bash -l {0}
+      run: |
+        source activate qp-woltka
+        travis_wait 40 nosetests $COVER_PACKAGE --with-doctest --with-coverage --with-timer -vv --cover-package=$COVER_PACKAGE
