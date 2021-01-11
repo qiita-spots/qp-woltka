@@ -19,10 +19,10 @@ from qiita_client import ArtifactInfo
 
 # resources per job
 PPN = 8
-MEMORY = '64g'
-WALLTIME = '10:00:00'
+MEMORY = '90g'
+WALLTIME = '30:00:00'
 MERGE_MEMORY = '48g'
-MERGE_WALLTIME = '4:00:00'
+MERGE_WALLTIME = '10:00:00'
 MAX_RUNNING = 8
 
 
@@ -69,10 +69,12 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
              f'#PBS -o {output}/{name}' + '_${PBS_ARRAYID}.log',
              f'#PBS -e {output}/{name}' + '_${PBS_ARRAYID}.err',
              f'#PBS -t 1-{n_jobs}%{max_running}',
+             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
+             'echo ${PBS_JOBID} ${PBS_ARRAYID}',
              'offset=${PBS_ARRAYID}']
 
     # if we have more than one file per job, we need to adjust our offset
@@ -235,14 +237,28 @@ def woltka_to_array(directory, output, database_bowtie2,
              f'#PBS -l mem={MERGE_MEMORY}',
              f'#PBS -o {output}/merge-{name}.log',
              f'#PBS -e {output}/merge-{name}.err',
+             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
+             'echo $PBS_JOBID',
              'set -e',
+             # making sure that all the expected files are actually created,
+             # if not do not execute the merging steps. This validation
+             # includes ignoring files that have "0.00% overall alignment rate"
+             # in their log file, which is when nothing aligns and is fine to
+             # skip
+             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
+             f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
+             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
+             "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+             "then PROCESS=0; fi; fi; done",
+              "if [ 1 -eq $PROCESS ]; then ",
              '\n'.join(merges),
              "wait",
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
+             'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
 
