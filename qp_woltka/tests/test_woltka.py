@@ -349,7 +349,7 @@ class WoltkaTests(PluginTestCase):
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
-            'fi\n'
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)
