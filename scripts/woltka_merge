@@ -19,8 +19,17 @@ def merge(prep, base, glob, name, rename):
     prefix_to_name = prep.set_index('run_prefix')['sample_name'].to_dict()
 
     search = os.path.join(base, glob)
-    tables = [biom.load_table(f) for f in glob_.glob(search)
-              if len([1 for x in open(f)]) > 1]
+    tables = []
+    # making sure there are no empty files
+    for f in glob_.glob(search):
+        skip = True
+        with open(f) as fh:
+            for i, l in enumerate(fh):
+                if i >= 1 and l:
+                    skip = False
+                    break
+        if not skip:
+            tables.append(biom.load_table(f))
     tables = [t for t in tables if t.shape != (0, 0)]
     table = biom.concat(tables)
 
