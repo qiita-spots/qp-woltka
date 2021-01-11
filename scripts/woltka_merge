@@ -20,7 +20,7 @@ def merge(prep, base, glob, name, rename):
 
     search = os.path.join(base, glob)
     tables = [biom.load_table(f) for f in glob_.glob(search)
-              if len([1 for x in open(f)])>1]
+              if len([1 for x in open(f)]) > 1]
     tables = [t for t in tables if t.shape != (0, 0)]
     table = biom.concat(tables)
 

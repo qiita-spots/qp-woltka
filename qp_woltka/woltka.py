@@ -254,7 +254,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
              "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
              "then PROCESS=0; fi; fi; done",
-              "if [ 1 -eq $PROCESS ]; then ",
+             "if [ 1 -eq $PROCESS ]; then ",
              '\n'.join(merges),
              "wait",
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'

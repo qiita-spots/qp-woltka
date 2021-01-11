@@ -182,11 +182,19 @@ class WoltkaTests(PluginTestCase):
             '#PBS -l mem=48g\n',
             f'#PBS -o {out_dir}/merge-{job_id}.log\n',
             f'#PBS -e {out_dir}/merge-{job_id}.err\n',
+            '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
+            'echo $PBS_JOBID\n',
             'set -e\n',
+            "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
+            f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
+            "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
+            "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+            "then PROCESS=0; fi; fi; done\n",
+            "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
@@ -199,6 +207,7 @@ class WoltkaTests(PluginTestCase):
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
             'wait\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge_qsub, exp_merge_qsub)
@@ -321,7 +330,7 @@ class WoltkaTests(PluginTestCase):
             'echo $PBS_JOBID\n',
             'set -e\n',
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-            f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
+            f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
             "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
             "then PROCESS=0; fi; fi; done\n",
