@@ -23,11 +23,14 @@ def merge(prep, base, glob, name, rename):
     # making sure there are no empty files
     for f in glob_.glob(search):
         skip = True
-        with open(f) as fh:
-            for i, l in enumerate(fh):
-                if i >= 1 and l:
-                    skip = False
-                    break
+        if biom.util.is_hdf5_file(f):
+            skip = False
+        else:
+            with open(f) as fh:
+                for i, l in enumerate(fh):
+                    if i >= 1 and l:
+                        skip = False
+                        break
         if not skip:
             tables.append(biom.load_table(f))
     tables = [t for t in tables if t.shape != (0, 0)]
