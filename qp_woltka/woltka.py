@@ -61,26 +61,26 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
 
     # all the setup pieces
     lines = ['#!/bin/bash',
-             '#PBS -M qiita.help@gmail.com',
-             f'#PBS -N {name}',
-             f'#PBS -l nodes=1:ppn={ppn}',
-             f'#PBS -l walltime={walltime}',
-             f'#PBS -l mem={memory}',
-             f'#PBS -o {output}/{name}' + '_${PBS_ARRAYID}.log',
-             f'#PBS -e {output}/{name}' + '_${PBS_ARRAYID}.err',
-             f'#PBS -t 1-{n_jobs}%{max_running}',
-             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name {name}',
+             '#SBATCH -N 1\n',
+             f'#SBATCH -N {ppn}\n',
+             f'#SBATCH --time {walltime}',
+             f'#SBATCH --mem {memory}',
+             f'#SBATCH --output {output}/{name}' + '_${SLURM_ARRAY_TASK_ID}.log',
+             f'#SBATCH --error {output}/{name}' + '_${SLURM_ARRAY_TASK_ID}.err',
+             f'#SBATCH --array 1-{n_jobs}%{max_running}',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
-             'echo ${PBS_JOBID} ${PBS_ARRAYID}',
-             'offset=${PBS_ARRAYID}']
+             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
+             'offset=${SLURM_ARRAY_TASK_ID}']
 
     # if we have more than one file per job, we need to adjust our offset
     # position accordingly. If we had three files per job, then the first
     # job processes lines 1, 2, and 3 of the details. The second job
-    # processes lines 4, 5, 6. Note that the PBS_ARRAYID is 1-based not
+    # processes lines 4, 5, 6. Note that the SLURM_ARRAY_TASK_ID is 1-based not
     # 0-based.
     if per_job > 1:
         lines.append(f"offset=$(( $offset * {per_job} ))")
@@ -230,19 +230,19 @@ def woltka_to_array(directory, output, database_bowtie2,
     assert n_merges < 32  # 32 merges would be crazy...
 
     lines = ['#!/bin/bash',
-             '#PBS -M qiita.help@gmail.com',
-             f'#PBS -N merge-{name}',
-             f'#PBS -l nodes=1:ppn={n_merges}',
-             f'#PBS -l walltime={MERGE_WALLTIME}',
-             f'#PBS -l mem={MERGE_MEMORY}',
-             f'#PBS -o {output}/merge-{name}.log',
-             f'#PBS -e {output}/merge-{name}.err',
-             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name merge-{name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {n_merges}',
+             f'#SBATCH --time {MERGE_WALLTIME}',
+             f'#SBATCH --mem {MERGE_MEMORY}',
+             f'#SBATCH --output {output}/merge-{name}.log',
+             f'#SBATCH --error {output}/merge-{name}.err',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
-             'echo $PBS_JOBID',
+             'echo $SLURM_JOBID',
              'set -e',
              # making sure that all the expected files are actually created,
              # if not do not execute the merging steps. This validation
