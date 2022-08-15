@@ -136,7 +136,7 @@ jobs:
         env:
           COVER_PACKAGE: ${{ matrix.cover_package }}
         run: |
-          conda activate klp
+          conda activate qp-woltka
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/server.crt
           export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
           export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
