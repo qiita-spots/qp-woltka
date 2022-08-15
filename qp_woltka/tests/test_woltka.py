@@ -147,9 +147,9 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 90g\n',
             f'#SBATCH --output {out_dir}/{job_id}_'
-            '${{SLURM_ARRAY_TASK_ID}}.log\n',
+            '${SLURM_ARRAY_TASK_ID}.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_'
-            '${{SLURM_ARRAY_TASK_ID}}.err\n',
+            '${SLURM_ARRAY_TASK_ID}.err\n',
             '#SBATCH --array 1-2%8\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
