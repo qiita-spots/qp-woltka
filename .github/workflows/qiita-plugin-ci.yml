@@ -76,6 +76,7 @@ jobs:
       - name: Install Qiita plugins
         shell: bash -l {0}
         run: |
+          conda config --add channels bioconda
           conda create --yes -n qp-woltka biom-format bowtie2
           conda activate qp-woltka
 
@@ -162,4 +163,4 @@ jobs:
     - name: lint
       run: |
         pip install -q flake8
-        lake8 qp_woltka setup.py scripts/*
+        flake8 qp_woltka setup.py scripts/*
