@@ -76,7 +76,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda config --add channels bioconda
-          conda create --yes -n qp-woltka biom-format bowtie2
+          conda create --yes -n qp-woltka python=3.9 biom-format bowtie2
           conda activate qp-woltka
 
           pip --quiet install .
