@@ -64,13 +64,12 @@ jobs:
           conda config --add channels conda-forge
           conda create -q --yes -n qiita python=3.9 libgfortran numpy nginx cython redis
           conda activate qiita
-          pip install sphinx sphinx-bootstrap-theme nose-timer codecov Click
 
       - name: Qiita install
         shell: bash -l {0}
         run: |
           conda activate qiita
-          pip install qiita-dev/ --no-binary redbiom
+          pip --quiet install qiita-dev/ --no-binary redbiom
           mkdir ~/.qiita_plugins
 
       - name: Install Qiita plugins
@@ -80,8 +79,9 @@ jobs:
           conda create --yes -n qp-woltka biom-format bowtie2
           conda activate qp-woltka
 
-          pip install -U pip pip nose flake8
-          pip install https://github.com/qiita-spots/qiita_client/archive/master.zip
+          pip --quiet install .
+          pip --quiet install -U pip pip nose flake8
+          pip --quiet install https://github.com/qiita-spots/qiita_client/archive/master.zip
 
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/server.crt
           export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
@@ -162,5 +162,5 @@ jobs:
       uses: actions/checkout@v2
     - name: lint
       run: |
-        pip install -q flake8
+        pip --quiet install -q flake8
         flake8 qp_woltka setup.py scripts/*

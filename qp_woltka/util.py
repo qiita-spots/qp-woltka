@@ -29,7 +29,7 @@ def get_dbs(db_folder):
                      f.endswith('.bt2l')][0].rsplit('.', 2)[0]
             dbs[folder] = join(folder_path, db_fp)
 
-    return(dbs)
+    return (dbs)
 
 
 def generate_woltka_dflt_params():
@@ -41,7 +41,7 @@ def generate_woltka_dflt_params():
     for name, fp in dbs.items():
         dflt_param_set[name] = {'Database': fp}
 
-    return(dflt_param_set)
+    return (dflt_param_set)
 
 
 def client_connect(url):
