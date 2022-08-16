@@ -34,7 +34,7 @@ outputs = {
 dflt_param_set = generate_woltka_dflt_params()
 
 woltka_cmd = QiitaCommand(
-    'Woltka v0.1.1', "Functional and Taxonomic Predictions", woltka,
+    'Woltka v0.1.4', "Functional and Taxonomic Predictions", woltka,
     req_params, opt_params, outputs, dflt_param_set)
 
 plugin.register_command(woltka_cmd)

@@ -13,7 +13,7 @@ from qiita_client import QiitaClient
 
 
 plugin_details = {'name': 'qp-woltka',
-                  'version': '2020.11',
+                  'version': '2022.09',
                   'description': 'Woltka'}
 
 
