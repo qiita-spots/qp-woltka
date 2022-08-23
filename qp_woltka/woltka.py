@@ -114,12 +114,12 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
     lines.append('date')  # end time
 
     # write out the script
-    qsub_fp = join(output, f'{name}.qsub')
-    with open(qsub_fp, 'w') as job:
+    sub_fp = join(output, f'{name}.slurm')
+    with open(sub_fp, 'w') as job:
         job.write('\n'.join(lines))
         job.write('\n')
 
-    return qsub_fp
+    return sub_fp
 
 
 def _process_database_files(database_fp):
@@ -137,7 +137,7 @@ def _process_database_files(database_fp):
 
 def woltka_to_array(directory, output, database_bowtie2,
                     preparation_information, url, name):
-    """Creates qsub files for submission of per sample bowtie2 and woltka
+    """Creates files for submission of per sample bowtie2 and woltka
     """
     environment = environ["ENVIRONMENT"]
     kwargs = {'directory': directory,
@@ -263,15 +263,15 @@ def woltka_to_array(directory, output, database_bowtie2,
              "date"]  # end time
 
     # construct the job array
-    main_qsub_fp = _to_array(**kwargs)
+    main_fp = _to_array(**kwargs)
 
     # write out the merge script
-    merge_qsub_fp = join(output, f'{name}.merge.qsub')
-    with open(merge_qsub_fp, 'w') as out:
+    merge_fp = join(output, f'{name}.merge.slurm')
+    with open(merge_fp, 'w') as out:
         out.write('\n'.join(lines))
         out.write('\n')
 
-    return main_qsub_fp, merge_qsub_fp
+    return main_fp, merge_fp
 
 
 def woltka(qclient, job_id, parameters, out_dir):

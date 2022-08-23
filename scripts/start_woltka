@@ -57,14 +57,14 @@ def execute(url, job_id, out_dir):
         prep_file = prep_info['prep-file']
 
         # Getting all the files from the database
-        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+        main_fp, merge_fp = woltka_to_array(
             directory, out_dir, parameters['Database'], prep_file, url, job_id)
 
         # Submitting jobs and returning id
-        main_job = run(['qsub', main_qsub_fp], stdout=PIPE)
+        main_job = run(['sbatch', main_fp], stdout=PIPE)
         main_job_id = main_job.stdout.decode('utf8')
-        merge_job = run(['qsub', f'-W depend=afteranyarray:{main_job_id}',
-                         merge_qsub_fp], stdout=PIPE)
+        merge_job = run(['sbatch', f'-d afterany:{main_job_id}',
+                         merge_fp], stdout=PIPE)
         merge_job_id = merge_job.stdout.decode('utf8')
         print(f'{main_job_id}, {merge_job_id}')
 

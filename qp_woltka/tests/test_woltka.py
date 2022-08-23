@@ -127,18 +127,18 @@ class WoltkaTests(PluginTestCase):
 
         url = 'this-is-my-url'
         database = self.params['Database']
-        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+        main_fp, merge_fp = woltka_to_array(
             directory, out_dir, database, prep_file, url, job_id)
 
-        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
-        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
 
-        with open(main_qsub_fp) as f:
-            main_qsub = f.readlines()
-        with open(merge_qsub_fp) as f:
-            merge_qsub = f.readlines()
+        with open(main_fp) as f:
+            main = f.readlines()
+        with open(merge_fp) as f:
+            merge = f.readlines()
 
-        exp_main_qsub = [
+        exp_main = [
             '#!/bin/bash\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name {job_id}\n',
@@ -173,9 +173,9 @@ class WoltkaTests(PluginTestCase):
             '-c $outfile0.sam > $outfile0.xz\n',
             'set +e\n',
             'date\n']
-        self.assertEqual(main_qsub, exp_main_qsub)
+        self.assertEqual(main, exp_main)
 
-        exp_merge_qsub = [
+        exp_merge = [
             '#!/bin/bash\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
@@ -212,7 +212,7 @@ class WoltkaTests(PluginTestCase):
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
-        self.assertEqual(merge_qsub, exp_merge_qsub)
+        self.assertEqual(merge, exp_merge)
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
@@ -267,18 +267,18 @@ class WoltkaTests(PluginTestCase):
         prep_file = prep_info['prep-file']
 
         url = 'this-is-my-url'
-        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+        main_fp, merge_fp = woltka_to_array(
             directory, out_dir, database, prep_file, url, job_id)
 
-        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
-        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
 
-        with open(main_qsub_fp) as f:
-            main_qsub = f.readlines()
-        with open(merge_qsub_fp) as f:
-            merge_qsub = f.readlines()
+        with open(main_fp) as f:
+            main = f.readlines()
+        with open(merge_fp) as f:
+            merge = f.readlines()
 
-        exp_main_qsub = [
+        exp_main = [
             '#!/bin/bash\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name {job_id}\n',
@@ -315,9 +315,9 @@ class WoltkaTests(PluginTestCase):
             '$outfile0.sam > $outfile0.xz\n',
             'set +e\n',
             'date\n']
-        self.assertEqual(main_qsub, exp_main_qsub)
+        self.assertEqual(main, exp_main)
 
-        exp_merge_qsub = [
+        exp_merge = [
             '#!/bin/bash\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
@@ -356,7 +356,7 @@ class WoltkaTests(PluginTestCase):
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
-        self.assertEqual(merge_qsub, exp_merge_qsub)
+        self.assertEqual(merge, exp_merge)
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
