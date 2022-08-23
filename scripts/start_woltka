@@ -62,7 +62,7 @@ def execute(url, job_id, out_dir):
 
         # Submitting jobs and returning id
         main_job = run(['sbatch', main_fp], stdout=PIPE)
-        main_job_id = main_job.stdout.decode('utf8')
+        main_job_id = main_job.stdout.decode('utf8').split()[-1]
         merge_job = run(['sbatch', f'-d afterany:{main_job_id}',
                          merge_fp], stdout=PIPE)
         merge_job_id = merge_job.stdout.decode('utf8')
