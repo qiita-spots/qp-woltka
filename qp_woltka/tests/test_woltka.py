@@ -97,7 +97,7 @@ class WoltkaTests(PluginTestCase):
             self.params['Database'] = database
 
         data = {'user': 'demo@microbio.me',
-                'command': dumps(['qp-woltka', '2020.11', 'Woltka v0.1.1']),
+                'command': dumps(['qp-woltka', '2022.09', 'Woltka v0.1.4']),
                 'status': 'running',
                 'parameters': dumps(self.params)}
         job_id = self.qclient.post(
@@ -127,34 +127,35 @@ class WoltkaTests(PluginTestCase):
 
         url = 'this-is-my-url'
         database = self.params['Database']
-        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+        main_fp, merge_fp = woltka_to_array(
             directory, out_dir, database, prep_file, url, job_id)
 
-        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
-        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
 
-        with open(main_qsub_fp) as f:
-            main_qsub = f.readlines()
-        with open(merge_qsub_fp) as f:
-            merge_qsub = f.readlines()
+        with open(main_fp) as f:
+            main = f.readlines()
+        with open(merge_fp) as f:
+            merge = f.readlines()
 
-        exp_main_qsub = [
+        exp_main = [
             '#!/bin/bash\n',
-            '#PBS -M qiita.help@gmail.com\n',
-            f'#PBS -N {job_id}\n',
-            '#PBS -l nodes=1:ppn=8\n',
-            '#PBS -l walltime=30:00:00\n',
-            '#PBS -l mem=90g\n',
-            f'#PBS -o {out_dir}/{job_id}_' '${PBS_ARRAYID}.log\n',
-            f'#PBS -e {out_dir}/{job_id}_' '${PBS_ARRAYID}.err\n',
-            '#PBS -t 1-2%8\n',
-            '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name {job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 8\n',
+            '#SBATCH --time 30:00:00\n',
+            '#SBATCH --mem 90g\n',
+            f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
+            f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
+            '#SBATCH --array 1-2%8\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
-            'echo ${PBS_JOBID} ${PBS_ARRAYID}\n',
-            'offset=${PBS_ARRAYID}\n',
+            'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}\n',
+            'offset=${SLURM_ARRAY_TASK_ID}\n',
             'step=$(( $offset - 0 ))\n',
             'if [[ $step -gt 2 ]]; then exit 0; fi\n',
             f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
@@ -171,23 +172,24 @@ class WoltkaTests(PluginTestCase):
             '-c $outfile0.sam > $outfile0.xz\n',
             'set +e\n',
             'date\n']
-        self.assertEqual(main_qsub, exp_main_qsub)
+        self.assertEqual(main, exp_main)
 
-        exp_merge_qsub = [
+        exp_merge = [
             '#!/bin/bash\n',
-            '#PBS -M qiita.help@gmail.com\n',
-            f'#PBS -N merge-{job_id}\n',
-            '#PBS -l nodes=1:ppn=5\n',
-            '#PBS -l walltime=10:00:00\n',
-            '#PBS -l mem=48g\n',
-            f'#PBS -o {out_dir}/merge-{job_id}.log\n',
-            f'#PBS -e {out_dir}/merge-{job_id}.err\n',
-            '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name merge-{job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 5\n',
+            '#SBATCH --time 10:00:00\n',
+            '#SBATCH --mem 48g\n',
+            f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
+            f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
-            'echo $PBS_JOBID\n',
+            'echo $SLURM_JOBID\n',
             'set -e\n',
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
@@ -210,7 +212,7 @@ class WoltkaTests(PluginTestCase):
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
-        self.assertEqual(merge_qsub, exp_merge_qsub)
+        self.assertEqual(merge, exp_merge)
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
@@ -265,34 +267,35 @@ class WoltkaTests(PluginTestCase):
         prep_file = prep_info['prep-file']
 
         url = 'this-is-my-url'
-        main_qsub_fp, merge_qsub_fp = woltka_to_array(
+        main_fp, merge_fp = woltka_to_array(
             directory, out_dir, database, prep_file, url, job_id)
 
-        self.assertEqual(join(out_dir, f'{job_id}.qsub'), main_qsub_fp)
-        self.assertEqual(join(out_dir, f'{job_id}.merge.qsub'), merge_qsub_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
 
-        with open(main_qsub_fp) as f:
-            main_qsub = f.readlines()
-        with open(merge_qsub_fp) as f:
-            merge_qsub = f.readlines()
+        with open(main_fp) as f:
+            main = f.readlines()
+        with open(merge_fp) as f:
+            merge = f.readlines()
 
-        exp_main_qsub = [
+        exp_main = [
             '#!/bin/bash\n',
-            '#PBS -M qiita.help@gmail.com\n',
-            f'#PBS -N {job_id}\n',
-            '#PBS -l nodes=1:ppn=8\n',
-            '#PBS -l walltime=30:00:00\n',
-            '#PBS -l mem=90g\n',
-            f'#PBS -o {out_dir}/{job_id}_' '${PBS_ARRAYID}.log\n',
-            f'#PBS -e {out_dir}/{job_id}_' '${PBS_ARRAYID}.err\n',
-            '#PBS -t 1-2%8\n',
-            '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name {job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 8\n',
+            '#SBATCH --time 30:00:00\n',
+            '#SBATCH --mem 90g\n',
+            f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
+            f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
+            '#SBATCH --array 1-2%8\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
-            'echo ${PBS_JOBID} ${PBS_ARRAYID}\n',
-            'offset=${PBS_ARRAYID}\n',
+            'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}\n',
+            'offset=${SLURM_ARRAY_TASK_ID}\n',
             'step=$(( $offset - 0 ))\n',
             'if [[ $step -gt 2 ]]; then exit 0; fi\n',
             f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
@@ -311,23 +314,24 @@ class WoltkaTests(PluginTestCase):
             '$outfile0.sam > $outfile0.xz\n',
             'set +e\n',
             'date\n']
-        self.assertEqual(main_qsub, exp_main_qsub)
+        self.assertEqual(main, exp_main)
 
-        exp_merge_qsub = [
+        exp_merge = [
             '#!/bin/bash\n',
-            '#PBS -M qiita.help@gmail.com\n',
-            f'#PBS -N merge-{job_id}\n',
-            '#PBS -l nodes=1:ppn=6\n',
-            '#PBS -l walltime=10:00:00\n',
-            '#PBS -l mem=48g\n',
-            f'#PBS -o {out_dir}/merge-{job_id}.log\n',
-            f'#PBS -e {out_dir}/merge-{job_id}.err\n',
-            '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name merge-{job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 6\n',
+            '#SBATCH --time 10:00:00\n',
+            '#SBATCH --mem 48g\n',
+            f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
+            f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
             f'cd {out_dir}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
-            'echo $PBS_JOBID\n',
+            'echo $SLURM_JOBID\n',
             'set -e\n',
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
@@ -352,7 +356,7 @@ class WoltkaTests(PluginTestCase):
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
-        self.assertEqual(merge_qsub, exp_merge_qsub)
+        self.assertEqual(merge, exp_merge)
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'

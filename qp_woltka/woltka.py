@@ -61,26 +61,27 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
 
     # all the setup pieces
     lines = ['#!/bin/bash',
-             '#PBS -M qiita.help@gmail.com',
-             f'#PBS -N {name}',
-             f'#PBS -l nodes=1:ppn={ppn}',
-             f'#PBS -l walltime={walltime}',
-             f'#PBS -l mem={memory}',
-             f'#PBS -o {output}/{name}' + '_${PBS_ARRAYID}.log',
-             f'#PBS -e {output}/{name}' + '_${PBS_ARRAYID}.err',
-             f'#PBS -t 1-{n_jobs}%{max_running}',
-             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
+             '#SBATCH -p qiita',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name {name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {ppn}',
+             f'#SBATCH --time {walltime}',
+             f'#SBATCH --mem {memory}',
+             f'#SBATCH --output {output}/{name}_%a.log',
+             f'#SBATCH --error {output}/{name}_%a.err',
+             f'#SBATCH --array 1-{n_jobs}%{max_running}',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
-             'echo ${PBS_JOBID} ${PBS_ARRAYID}',
-             'offset=${PBS_ARRAYID}']
+             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
+             'offset=${SLURM_ARRAY_TASK_ID}']
 
     # if we have more than one file per job, we need to adjust our offset
     # position accordingly. If we had three files per job, then the first
     # job processes lines 1, 2, and 3 of the details. The second job
-    # processes lines 4, 5, 6. Note that the PBS_ARRAYID is 1-based not
+    # processes lines 4, 5, 6. Note that the SLURM_ARRAY_TASK_ID is 1-based not
     # 0-based.
     if per_job > 1:
         lines.append(f"offset=$(( $offset * {per_job} ))")
@@ -114,12 +115,12 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
     lines.append('date')  # end time
 
     # write out the script
-    qsub_fp = join(output, f'{name}.qsub')
-    with open(qsub_fp, 'w') as job:
+    sub_fp = join(output, f'{name}.slurm')
+    with open(sub_fp, 'w') as job:
         job.write('\n'.join(lines))
         job.write('\n')
 
-    return qsub_fp
+    return sub_fp
 
 
 def _process_database_files(database_fp):
@@ -137,7 +138,7 @@ def _process_database_files(database_fp):
 
 def woltka_to_array(directory, output, database_bowtie2,
                     preparation_information, url, name):
-    """Creates qsub files for submission of per sample bowtie2 and woltka
+    """Creates files for submission of per sample bowtie2 and woltka
     """
     environment = environ["ENVIRONMENT"]
     kwargs = {'directory': directory,
@@ -230,19 +231,20 @@ def woltka_to_array(directory, output, database_bowtie2,
     assert n_merges < 32  # 32 merges would be crazy...
 
     lines = ['#!/bin/bash',
-             '#PBS -M qiita.help@gmail.com',
-             f'#PBS -N merge-{name}',
-             f'#PBS -l nodes=1:ppn={n_merges}',
-             f'#PBS -l walltime={MERGE_WALLTIME}',
-             f'#PBS -l mem={MERGE_MEMORY}',
-             f'#PBS -o {output}/merge-{name}.log',
-             f'#PBS -e {output}/merge-{name}.err',
-             '#PBS -l epilogue=/home/qiita/qiita-epilogue.sh',
+             '#SBATCH -p qiita',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name merge-{name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {n_merges}',
+             f'#SBATCH --time {MERGE_WALLTIME}',
+             f'#SBATCH --mem {MERGE_MEMORY}',
+             f'#SBATCH --output {output}/merge-{name}.log',
+             f'#SBATCH --error {output}/merge-{name}.err',
              f'cd {output}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
-             'echo $PBS_JOBID',
+             'echo $SLURM_JOBID',
              'set -e',
              # making sure that all the expected files are actually created,
              # if not do not execute the merging steps. This validation
@@ -263,15 +265,15 @@ def woltka_to_array(directory, output, database_bowtie2,
              "date"]  # end time
 
     # construct the job array
-    main_qsub_fp = _to_array(**kwargs)
+    main_fp = _to_array(**kwargs)
 
     # write out the merge script
-    merge_qsub_fp = join(output, f'{name}.merge.qsub')
-    with open(merge_qsub_fp, 'w') as out:
+    merge_fp = join(output, f'{name}.merge.slurm')
+    with open(merge_fp, 'w') as out:
         out.write('\n'.join(lines))
         out.write('\n')
 
-    return main_qsub_fp, merge_qsub_fp
+    return main_fp, merge_fp
 
 
 def woltka(qclient, job_id, parameters, out_dir):
