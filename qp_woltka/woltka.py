@@ -61,6 +61,7 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
 
     # all the setup pieces
     lines = ['#!/bin/bash',
+             '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
              f'#SBATCH --job-name {name}',
              '#SBATCH -N 1',
@@ -230,6 +231,7 @@ def woltka_to_array(directory, output, database_bowtie2,
     assert n_merges < 32  # 32 merges would be crazy...
 
     lines = ['#!/bin/bash',
+             '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
              f'#SBATCH --job-name merge-{name}',
              '#SBATCH -N 1',

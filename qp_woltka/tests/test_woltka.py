@@ -140,6 +140,7 @@ class WoltkaTests(PluginTestCase):
 
         exp_main = [
             '#!/bin/bash\n',
+            '#SBATCH -p qiita',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
@@ -177,6 +178,7 @@ class WoltkaTests(PluginTestCase):
 
         exp_merge = [
             '#!/bin/bash\n',
+            '#SBATCH -p qiita',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
@@ -280,6 +282,7 @@ class WoltkaTests(PluginTestCase):
 
         exp_main = [
             '#!/bin/bash\n',
+            '#SBATCH -p qiita',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
@@ -319,6 +322,7 @@ class WoltkaTests(PluginTestCase):
 
         exp_merge = [
             '#!/bin/bash\n',
+            '#SBATCH -p qiita',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
