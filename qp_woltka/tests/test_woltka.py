@@ -145,8 +145,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
-            '#SBATCH --time 30:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --time 40:00:00\n',
+            '#SBATCH --mem 125g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-2%8\n',
@@ -181,8 +181,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 5\n',
-            '#SBATCH --time 10:00:00\n',
-            '#SBATCH --mem 48g\n',
+            '#SBATCH --time 30:00:00\n',
+            '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
             f'cd {out_dir}\n',
@@ -194,7 +194,7 @@ class WoltkaTests(PluginTestCase):
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+            "'0.00% overall alignment rate' *_${COUNTER}.err; "
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
@@ -285,8 +285,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
-            '#SBATCH --time 30:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --time 40:00:00\n',
+            '#SBATCH --mem 125g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-2%8\n',
@@ -323,8 +323,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 6\n',
-            '#SBATCH --time 10:00:00\n',
-            '#SBATCH --mem 48g\n',
+            '#SBATCH --time 30:00:00\n',
+            '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
             f'cd {out_dir}\n',
@@ -336,7 +336,7 @@ class WoltkaTests(PluginTestCase):
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+            "'0.00% overall alignment rate' *_${COUNTER}.err; "
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
