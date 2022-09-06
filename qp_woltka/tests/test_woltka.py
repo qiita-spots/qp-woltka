@@ -194,7 +194,7 @@ class WoltkaTests(PluginTestCase):
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+            "'0.00% overall alignment rate' *_${COUNTER}.err; "
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
@@ -336,7 +336,7 @@ class WoltkaTests(PluginTestCase):
             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
             f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+            "'0.00% overall alignment rate' *_${COUNTER}.err; "
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '

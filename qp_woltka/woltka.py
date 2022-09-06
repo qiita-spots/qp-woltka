@@ -19,10 +19,10 @@ from qiita_client import ArtifactInfo
 
 # resources per job
 PPN = 8
-MEMORY = '90g'
-WALLTIME = '30:00:00'
-MERGE_MEMORY = '48g'
-MERGE_WALLTIME = '10:00:00'
+MEMORY = '125g'
+WALLTIME = '40:00:00'
+MERGE_MEMORY = '140g'
+MERGE_WALLTIME = '30:00:00'
 MAX_RUNNING = 8
 
 
@@ -254,7 +254,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
              f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
              "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
-             "'0.00% overall alignment rate' *_${COUNTER}.err-${COUNTER}; "
+             "'0.00% overall alignment rate' *_${COUNTER}.err; "
              "then PROCESS=0; fi; fi; done",
              "if [ 1 -eq $PROCESS ]; then ",
              '\n'.join(merges),
