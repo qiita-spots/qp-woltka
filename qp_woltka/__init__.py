@@ -24,12 +24,14 @@ opt_params = {
                  db_list[0]],
     }
 outputs = {
+    # taxonomic
     'Alignment Profile': 'BIOM',
-    'Taxonomic Predictions - phylum': 'BIOM',
-    'Taxonomic Predictions - genus': 'BIOM',
-    'Taxonomic Predictions - species': 'BIOM',
     'Per genome Predictions': 'BIOM',
     'Per gene Predictions': 'BIOM',
+    # functional
+    'KEGG Ontology (KO)': 'BIOM',
+    'KEGG Enzyme (EC)': 'BIOM',
+    'KEGG Pathway': 'BIOM',
     }
 dflt_param_set = generate_woltka_dflt_params()
 

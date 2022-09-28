@@ -9,10 +9,8 @@ import pandas as pd
 
 from math import ceil
 from os import environ
-from os.path import join, basename, exists
+from os.path import join, basename, exists, dirname
 from glob import glob
-from biom.util import biom_open
-from biom import load_table
 import re
 
 from qiita_client import ArtifactInfo
@@ -125,15 +123,36 @@ def _to_array(directory, output, max_running, ppn, walltime, environment,
 
 def _process_database_files(database_fp):
     files = glob(f'{database_fp}*')
-    database_taxonomy = [f for f in files if f.endswith('.tax')][0]
-    database_gene_coordinates = [f for f in files if f.endswith('.coords')]
-    # not all databases have their coordinates fp
-    if database_gene_coordinates:
-        database_gene_coordinates = database_gene_coordinates[0]
-    else:
-        database_gene_coordinates = None
 
-    return database_taxonomy, database_gene_coordinates
+    database_files = {
+        'taxonomy': None,
+        'gene_coordinates': None,
+        'kegg': {
+            'orf-to-ko.map.xz': None,
+            'ko-to-ec.map': None,
+            'ko-to-reaction.map': None,
+            'reaction-to-module.map': None,
+            'module-to-pathway.map': None
+        }
+    }
+    database_files['taxonomy'] = [f for f in files if f.endswith('.tax')][0]
+    database_files['gene_coordinates'] = [
+        f for f in files if f.endswith('.coords')]
+    # not all databases have their coordinates fp
+    if database_files['gene_coordinates']:
+        database_files['gene_coordinates'] = database_files[
+            'gene_coordinates'][0]
+        # if there are gene_coordinates, there might be function translations
+        dname = dirname(database_fp)
+        if 'function' in glob(f'{dname}/*'):
+            if 'kegg' in glob(f'{dname}/function/*'):
+                dt = f'{dname}/function/kegg/'
+                files = glob('{dt}*')
+                for v in database_files['kegg'].values():
+                    if v in files:
+                        database_files['kegg'][v] = f'{dt}/{v}'
+
+    return database_files
 
 
 def woltka_to_array(directory, output, database_bowtie2,
@@ -151,8 +170,7 @@ def woltka_to_array(directory, output, database_bowtie2,
               'environment': environment,
               'output_extension': 'sam'}
 
-    database_taxonomy, database_gene_coordinates = _process_database_files(
-        database_bowtie2)
+    db_files = _process_database_files(database_bowtie2)
 
     prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
 
@@ -172,9 +190,7 @@ def woltka_to_array(directory, output, database_bowtie2,
     # https://stackoverflow.com/a/8005155
     concat = 'cat {infile}*.fastq.gz > {outfile}.fastq.gz'
 
-    # Bowtie2 command structure based on shogun settings
-    # https://github.com/knights-lab/SHOGUN/blob/ff1aabe772469d6a1c2c83cf146140b5341df83c/shogun/wrappers/bowtie2_wrapper.py#L21-L37
-    # And as described in:
+    # Bowtie2 command structure based on
     # https://github.com/BenLangmead/bowtie2/issues/311
     bowtie2 = f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
               '-q {outfile}.fastq.gz -S {outfile}.sam --seed 42 ' + \
@@ -183,18 +199,17 @@ def woltka_to_array(directory, output, database_bowtie2,
               '"L,0,-0.05" --no-head --no-unal'
     xz = f'xz -9 -T{PPN} -c ' + '{outfile}.sam > {outfile}.xz'
 
-    # Not performing demux as this is per sample, so no need
-    ranks = ["phylum", "genus", "species", "free", "none"]
+    ranks = ["free", "none"]
     woltka = 'woltka classify -i {outfile}.sam ' + \
              '-o {outfile}.woltka-taxa ' + \
              '--no-demux ' + \
-             f'--lineage {database_taxonomy} ' + \
+             f'--lineage {db_files["taxonomy"]} ' + \
              f'--rank {",".join(ranks)}'
 
-    # compute per-gene results
-    if database_gene_coordinates is not None:
+    # compute per-gene/functional results
+    if db_files['gene_coordinates'] is not None:
         woltka_per_gene = 'woltka classify -i {outfile}.sam ' + \
-                          f'-c {database_gene_coordinates} ' + \
+                          f'-c {db_files["gene_coordinates"]} ' + \
                           '-o {outfile}.woltka-per-gene ' + \
                           '--no-demux'
         cmd_fmt = f'{concat}; {bowtie2}; {woltka}; {woltka_per_gene}; {xz}'
@@ -209,15 +224,33 @@ def woltka_to_array(directory, output, database_bowtie2,
     merges = []
     merge_inv = f'woltka_merge --prep {preparation_information} ' + \
                 f'--base {output} '
+    fcmds = []
     for r in ranks:
         merges.append(" ".join([merge_inv,
                                 f'--name {r}',
                                 f'--glob "*.woltka-taxa/{r}.biom"',
                                 '&']))  # run all at once
-    if database_gene_coordinates is not None:
+    if db_files['gene_coordinates'] is not None:
         merges.append(" ".join([merge_inv, '--name per-gene',
                                 '--glob "*.woltka-per-gene"',
                                 '--rename &']))  # run all at once
+        wcdm = 'woltka tools collapse -i '
+        dbfk = db_files['kegg']
+        if dbfk["orf-to-ko.map.xz"] is not None:
+            fcmds.append(f'{wcdm} per-gene.biom -m {dbfk["orf-to-ko.map.xz"]} '
+                         '-o ko.biom')
+        if dbfk["ko-to-ec.map"] is not None:
+            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-ec.map"]} '
+                         '-o ec.biom')
+        if dbfk["ko-to-reaction.map"] is not None and \
+                dbfk["reaction-to-module.map"] is not None and \
+                dbfk["module-to-pathway.map "] is not None:
+            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
+                         '-o reaction.biom')
+            fcmds.append(f'{wcdm} reaction.biom -m '
+                         '{dbfk["reaction-to-module.map"]} -o module.biom')
+            fcmds.append(f'{wcdm} module.biom -m '
+                         '{dbfk["module-to-pathway.map"]} -o pathway.biom')
     else:
         # for "simplicity" we will inject the `--rename` flag to the last
         # merge command (between all the parameters and the last &)
@@ -259,6 +292,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              "if [ 1 -eq $PROCESS ]; then ",
              '\n'.join(merges),
              "wait",
+             '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
              'fi',
              f'finish_woltka {url} {name} {output}\n'
@@ -295,8 +329,7 @@ def woltka(qclient, job_id, parameters, out_dir):
     bool, list, str
         The results of the job
     """
-    database_taxonomy, database_gene_coordinates = _process_database_files(
-        parameters['Database'])
+    db_files = _process_database_files(parameters['Database'])
 
     errors = []
     ainfo = []
@@ -310,24 +343,6 @@ def woltka(qclient, job_id, parameters, out_dir):
         errors.append('Missing files from the "Alignment Profile"; please '
                       'contact qiita.help@gmail.com for more information')
 
-    for rank in ['phylum', 'genus', 'species']:
-        fp = f'{out_dir}/{rank}.biom'
-
-        if exists(fp):
-            # making sure that the tables have taxonomy
-            bt = load_table(fp)
-            metadata = {x: {'taxonomy': x.split(';')}
-                        for x in bt.ids(axis='observation')}
-            bt.add_metadata(metadata, axis='observation')
-            with biom_open(fp, 'w') as f:
-                bt.to_hdf5(f, "woltka")
-
-            ainfo.append(ArtifactInfo(f'Taxonomic Predictions - {rank}',
-                                      'BIOM', [(fp, 'biom')]))
-        else:
-            errors.append(f'Table {rank} was not created, please contact '
-                          'qiita.help@gmail.com for more information')
-
     fp_biom = f'{out_dir}/none.biom'
     if exists(fp_biom):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
@@ -336,11 +351,35 @@ def woltka(qclient, job_id, parameters, out_dir):
         errors.append('Table none/per-genome was not created, please contact '
                       'qiita.help@gmail.com for more information')
 
-    if database_gene_coordinates is not None:
+    if db_files['gene_coordinates'] is not None:
         fp_biom = f'{out_dir}/per-gene.biom'
         if exists(fp_biom):
             ainfo.append(ArtifactInfo('Per gene Predictions', 'BIOM', [
                 (fp_biom, 'biom')]))
+        else:
+            errors.append('Table per-gene was not created, please contact '
+                          'qiita.help@gmail.com for more information')
+
+        fp_biom = f'{out_dir}/ko.biom'
+        if exists(fp_biom):
+            ainfo.append(ArtifactInfo('KEGG Ontology (KO)', 'BIOM', [
+                (fp_biom, 'biom')]))
+        else:
+            errors.append('Table per-gene was not created, please contact '
+                          'qiita.help@gmail.com for more information')
+
+        fp_biom = f'{out_dir}/ec.biom'
+        if exists(fp_biom):
+            ainfo.append(ArtifactInfo('KEGG Enzyme (EC)', 'BIOM', [
+                (fp_biom, 'biom')]))
+        else:
+            errors.append('Table per-gene was not created, please contact '
+                          'qiita.help@gmail.com for more information')
+
+        fp_biom = f'{out_dir}/pathway.biom'
+        if exists(fp_biom):
+            ainfo.append(
+                ArtifactInfo('KEGG Pathway', 'BIOM', [(fp_biom, 'biom')]))
         else:
             errors.append('Table per-gene was not created, please contact '
                           'qiita.help@gmail.com for more information')
