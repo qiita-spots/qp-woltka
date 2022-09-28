@@ -136,12 +136,10 @@ def _process_database_files(database_fp):
         }
     }
     database_files['taxonomy'] = [f for f in files if f.endswith('.tax')][0]
-    database_files['gene_coordinates'] = [
-        f for f in files if f.endswith('.coords')]
+    gene_coordinates = [f for f in files if f.endswith('.coords')]
     # not all databases have their coordinates fp
-    if database_files['gene_coordinates']:
-        database_files['gene_coordinates'] = database_files[
-            'gene_coordinates'][0]
+    if gene_coordinates:
+        database_files['gene_coordinates'] = gene_coordinates[0]
         # if there are gene_coordinates, there might be function translations
         dname = dirname(database_fp)
         if 'function' in glob(f'{dname}/*'):
@@ -360,29 +358,39 @@ def woltka(qclient, job_id, parameters, out_dir):
             errors.append('Table per-gene was not created, please contact '
                           'qiita.help@gmail.com for more information')
 
-        fp_biom = f'{out_dir}/ko.biom'
-        if exists(fp_biom):
-            ainfo.append(ArtifactInfo('KEGG Ontology (KO)', 'BIOM', [
-                (fp_biom, 'biom')]))
-        else:
-            errors.append('Table KEGG Ontology was not created, please '
-                          'contact qiita.help@gmail.com for more information')
+        dbfk = db_files['kegg']
 
-        fp_biom = f'{out_dir}/ec.biom'
-        if exists(fp_biom):
-            ainfo.append(ArtifactInfo('KEGG Enzyme (EC)', 'BIOM', [
-                (fp_biom, 'biom')]))
-        else:
-            errors.append('Table KEGG Enzyme was not created, please contact '
-                          'qiita.help@gmail.com for more information')
+        if dbfk["orf-to-ko.map.xz"] is not None:
+            fp_biom = f'{out_dir}/ko.biom'
+            if exists(fp_biom):
+                ainfo.append(ArtifactInfo('KEGG Ontology (KO)', 'BIOM', [
+                    (fp_biom, 'biom')]))
+            else:
+                errors.append('Table KEGG Ontology was not created, please '
+                              'contact qiita.help@gmail.com for more '
+                              'information')
 
-        fp_biom = f'{out_dir}/pathway.biom'
-        if exists(fp_biom):
-            ainfo.append(
-                ArtifactInfo('KEGG Pathway', 'BIOM', [(fp_biom, 'biom')]))
-        else:
-            errors.append('Table KEGG Pathway was not created, please contact '
-                          'qiita.help@gmail.com for more information')
+        if dbfk["ko-to-ec.map"] is not None:
+            fp_biom = f'{out_dir}/ec.biom'
+            if exists(fp_biom):
+                ainfo.append(ArtifactInfo('KEGG Enzyme (EC)', 'BIOM', [
+                    (fp_biom, 'biom')]))
+            else:
+                errors.append('Table KEGG Enzyme was not created, please '
+                              'contact qiita.help@gmail.com for more '
+                              'information')
+
+        if dbfk["ko-to-reaction.map"] is not None and \
+                dbfk["reaction-to-module.map"] is not None and \
+                dbfk["module-to-pathway.map "] is not None:
+            fp_biom = f'{out_dir}/pathway.biom'
+            if exists(fp_biom):
+                ainfo.append(
+                    ArtifactInfo('KEGG Pathway', 'BIOM', [(fp_biom, 'biom')]))
+            else:
+                errors.append('Table KEGG Pathway was not created, please '
+                              'contact qiita.help@gmail.com for more '
+                              'information')
 
     if errors:
         return False, ainfo, '\n'.join(errors)
