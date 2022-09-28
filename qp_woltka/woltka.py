@@ -365,15 +365,15 @@ def woltka(qclient, job_id, parameters, out_dir):
             ainfo.append(ArtifactInfo('KEGG Ontology (KO)', 'BIOM', [
                 (fp_biom, 'biom')]))
         else:
-            errors.append('Table per-gene was not created, please contact '
-                          'qiita.help@gmail.com for more information')
+            errors.append('Table KEGG Ontology was not created, please '
+                          'contact qiita.help@gmail.com for more information')
 
         fp_biom = f'{out_dir}/ec.biom'
         if exists(fp_biom):
             ainfo.append(ArtifactInfo('KEGG Enzyme (EC)', 'BIOM', [
                 (fp_biom, 'biom')]))
         else:
-            errors.append('Table per-gene was not created, please contact '
+            errors.append('Table KEGG Enzyme was not created, please contact '
                           'qiita.help@gmail.com for more information')
 
         fp_biom = f'{out_dir}/pathway.biom'
@@ -381,7 +381,7 @@ def woltka(qclient, job_id, parameters, out_dir):
             ainfo.append(
                 ArtifactInfo('KEGG Pathway', 'BIOM', [(fp_biom, 'biom')]))
         else:
-            errors.append('Table per-gene was not created, please contact '
+            errors.append('Table KEGG Pathway was not created, please contact '
                           'qiita.help@gmail.com for more information')
 
     if errors:

@@ -322,7 +322,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 6\n',
+            '#SBATCH -n 3\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -340,18 +340,13 @@ class WoltkaTests(PluginTestCase):
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'genus --glob "*.woltka-taxa/genus.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'species --glob "*.woltka-taxa/species.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
+            '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
@@ -414,16 +409,18 @@ class WoltkaTests(PluginTestCase):
         exp_msg = '\n'.join([
             'Missing files from the "Alignment Profile"; please contact '
             'qiita.help@gmail.com for more information',
-            'Table phylum was not created, please contact '
-            'qiita.help@gmail.com for more information',
-            'Table genus was not created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table species was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '
-            'qiita.help@gmail.com for more information'])
+            'qiita.help@gmail.com for more information',
+            'Table KEGG Ontology was not created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table KEGG Enzyme was not created, please contact '
+            'qiita.help@gmail.com for more information',
+            'Table KEGG Pathway was not created, please contact '
+            'qiita.help@gmail.com for more information'
+            ])
         self.assertEqual(exp_msg, msg)
         self.assertFalse(success)
 
