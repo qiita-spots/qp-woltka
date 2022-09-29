@@ -18,23 +18,34 @@ def merge(prep, base, glob, name, rename):
     prep = pd.read_csv(prep, sep='\t', dtype=str)
     prefix_to_name = prep.set_index('run_prefix')['sample_name'].to_dict()
 
+    # this is the size that was used in the tests that kept a small ~2.5G
+    # memory footprint
+    chunk_size = 10
+    table = None
+
     search = os.path.join(base, glob)
-    tables = []
-    # making sure there are no empty files
-    for f in glob_.glob(search):
-        skip = True
-        if biom.util.is_hdf5_file(f):
-            skip = False
-        else:
-            with open(f) as fh:
-                for i, l in enumerate(fh):
-                    if i >= 1 and l:
-                        skip = False
-                        break
-        if not skip:
-            tables.append(biom.load_table(f))
-    tables = [t for t in tables if t.shape != (0, 0)]
-    table = biom.concat(tables)
+    tables = glob_.glob(search)
+    for block in range(0, len(tables), chunk_size):
+        chunk = tables[block:block + chunk_size]
+        chunk_tables = []
+        for f in chunk:
+            skip = True
+            if biom.util.is_hdf5_file(f):
+                skip = False
+            else:
+                with open(f) as fh:
+                    for i, l in enumerate(fh):
+                        if i >= 1 and l:
+                            skip = False
+                            break
+            if not skip:
+                chunk_tables.append(biom.load_table(f))
+
+            if table is None:
+                assert len(chunk_tables) >= 2
+                table = chunk_tables[0].concat(chunk_tables[1:])
+            else:
+                table = table.concat(chunk_tables)
 
     with_extension = {}
     for i in table.ids():
