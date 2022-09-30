@@ -202,7 +202,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              '-o {outfile}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)} --add-lineage'
+             f'--rank {",".join(ranks)}'
 
     # compute per-gene/functional results
     if db_files['gene_coordinates'] is not None:

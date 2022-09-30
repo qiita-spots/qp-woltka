@@ -168,7 +168,7 @@ class WoltkaTests(PluginTestCase):
             '--score-min "L,0,-0.05" --no-head '
             '--no-unal; woltka classify -i $outfile0.sam -o '
             f'$outfile0.woltka-taxa --no-demux --lineage {database}.tax '
-            '--rank free,none --add-lineage; xz -9 -T8 -c $outfile0.sam > '
+            '--rank free,none; xz -9 -T8 -c $outfile0.sam > '
             '$outfile0.xz\n',
             'set +e\n',
             'date\n']
@@ -294,7 +294,7 @@ class WoltkaTests(PluginTestCase):
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
             '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify '
             '-i $outfile0.sam -o $outfile0.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none --add-lineage; '
+            f'--lineage {database}.tax --rank free,none; '
             f'woltka classify -i $outfile0.sam -c {database}.coords '
             '-o $outfile0.woltka-per-gene --no-demux; xz -9 -T8 -c '
             '$outfile0.sam > $outfile0.xz\n',
