@@ -14,7 +14,6 @@ from os.path import exists, isdir, join, dirname
 from shutil import rmtree, copyfile
 from tempfile import mkdtemp
 from json import dumps
-from biom import load_table
 
 from qp_woltka import plugin
 from qp_woltka.util import get_dbs, generate_woltka_dflt_params
@@ -166,10 +165,11 @@ class WoltkaTests(PluginTestCase):
             'cat $infile0*.fastq.gz > $outfile0.fastq.gz; bowtie2 -p 8 -x '
             f'{database} -q $outfile0.fastq.gz -S $outfile0.sam --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify -i '
-            '$outfile0.sam -o $outfile0.woltka-taxa --no-demux --lineage '
-            f'{database}.tax --rank phylum,genus,species,free,none; xz -9 -T8 '
-            '-c $outfile0.sam > $outfile0.xz\n',
+            '--score-min "L,0,-0.05" --no-head '
+            '--no-unal; woltka classify -i $outfile0.sam -o '
+            f'$outfile0.woltka-taxa --no-demux --lineage {database}.tax '
+            '--rank free,none; xz -9 -T8 -c $outfile0.sam > '
+            '$outfile0.xz\n',
             'set +e\n',
             'date\n']
         self.assertEqual(main, exp_main)
@@ -180,7 +180,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 5\n',
+            '#SBATCH -n 2\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -198,16 +198,11 @@ class WoltkaTests(PluginTestCase):
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'genus --glob "*.woltka-taxa/genus.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'species --glob "*.woltka-taxa/species.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
             'wait\n',
+            '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
@@ -216,10 +211,7 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/genus.biom', f'{out_dir}/genus.biom')
         copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
-        copyfile(f'{sdir}/species.biom', f'{out_dir}/species.biom')
-        copyfile(f'{sdir}/phylum.biom', f'{out_dir}/phylum.biom')
         copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
 
@@ -233,12 +225,6 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log')]),
-            ArtifactInfo('Taxonomic Predictions - phylum', 'BIOM',
-                         [(f'{out_dir}/phylum.biom', 'biom')]),
-            ArtifactInfo('Taxonomic Predictions - genus', 'BIOM',
-                         [(f'{out_dir}/genus.biom', 'biom')]),
-            ArtifactInfo('Taxonomic Predictions - species', 'BIOM',
-                         [(f'{out_dir}/species.biom', 'biom')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom')])]
 
@@ -308,7 +294,7 @@ class WoltkaTests(PluginTestCase):
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
             '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify '
             '-i $outfile0.sam -o $outfile0.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank phylum,genus,species,free,none; '
+            f'--lineage {database}.tax --rank free,none; '
             f'woltka classify -i $outfile0.sam -c {database}.coords '
             '-o $outfile0.woltka-per-gene --no-demux; xz -9 -T8 -c '
             '$outfile0.sam > $outfile0.xz\n',
@@ -322,7 +308,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 6\n',
+            '#SBATCH -n 3\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -340,18 +326,13 @@ class WoltkaTests(PluginTestCase):
             "then PROCESS=0; fi; fi; done\n",
             "if [ 1 -eq $PROCESS ]; then \n",
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'phylum --glob "*.woltka-taxa/phylum.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'genus --glob "*.woltka-taxa/genus.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
-            'species --glob "*.woltka-taxa/species.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" &\n',
             f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
+            '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
@@ -360,14 +341,10 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/genus.biom', f'{out_dir}/genus.biom')
         copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
         copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
-        copyfile(f'{sdir}/species.biom', f'{out_dir}/species.biom')
-        copyfile(f'{sdir}/phylum.biom', f'{out_dir}/phylum.biom')
         copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
-
         success, ainfo, msg = woltka(
             self.qclient, job_id, self.params, out_dir)
 
@@ -378,24 +355,12 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log')]),
-            ArtifactInfo('Taxonomic Predictions - phylum', 'BIOM',
-                         [(f'{out_dir}/phylum.biom', 'biom')]),
-            ArtifactInfo('Taxonomic Predictions - genus', 'BIOM',
-                         [(f'{out_dir}/genus.biom', 'biom')]),
-            ArtifactInfo('Taxonomic Predictions - species', 'BIOM',
-                         [(f'{out_dir}/species.biom', 'biom')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
                          [(f'{out_dir}/per-gene.biom', 'biom')])]
 
         self.assertCountEqual(ainfo, exp)
-
-        # check that the produced table have feature taxonomy
-        bt = load_table(f'{out_dir}/phylum.biom')
-        self.assertCountEqual(
-            bt.metadata_to_dataframe('observation').columns,
-            ['taxonomy_0', 'taxonomy_1'])
 
     def test_woltka_to_array_error(self):
         # inserting new prep template
@@ -414,16 +379,11 @@ class WoltkaTests(PluginTestCase):
         exp_msg = '\n'.join([
             'Missing files from the "Alignment Profile"; please contact '
             'qiita.help@gmail.com for more information',
-            'Table phylum was not created, please contact '
-            'qiita.help@gmail.com for more information',
-            'Table genus was not created, please contact qiita.help@gmail.com '
-            'for more information',
-            'Table species was not created, please contact '
-            'qiita.help@gmail.com for more information',
             'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '
-            'qiita.help@gmail.com for more information'])
+            'qiita.help@gmail.com for more information'
+        ])
         self.assertEqual(exp_msg, msg)
         self.assertFalse(success)
 
