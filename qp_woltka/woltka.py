@@ -142,12 +142,12 @@ def _process_database_files(database_fp):
         database_files['gene_coordinates'] = gene_coordinates[0]
         # if there are gene_coordinates, there might be function translations
         dname = dirname(database_fp)
-        if 'function' in glob(f'{dname}/*'):
-            if 'kegg' in glob(f'{dname}/function/*'):
-                dt = f'{dname}/function/kegg/'
-                files = glob('{dt}*')
-                for v in database_files['kegg'].values():
-                    if v in files:
+        if f'{dname}/function' in glob(f'{dname}/*'):
+            if f'{dname}/function/kegg' in glob(f'{dname}/function/*'):
+                dt = f'{dname}/function/kegg'
+                files = glob(f'{dt}/*')
+                for v in database_files['kegg'].keys():
+                    if f'{dt}/{v}' in files:
                         database_files['kegg'][v] = f'{dt}/{v}'
 
     return database_files
