@@ -284,7 +284,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              # skip
              "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
              f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
-             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
+             "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
              "'0.00% overall alignment rate' *_${COUNTER}.err; "
              "then PROCESS=0; fi; fi; done",
              "if [ 1 -eq $PROCESS ]; then ",
