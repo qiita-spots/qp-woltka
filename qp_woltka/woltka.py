@@ -242,7 +242,7 @@ def woltka_to_array(directory, output, database_bowtie2,
                          '-o ec.biom')
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
-                dbfk["module-to-pathway.map "] is not None:
+                dbfk["module-to-pathway.map"] is not None:
             fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
                          '-o reaction.biom')
             fcmds.append(f'{wcdm} reaction.biom -m '
@@ -382,7 +382,7 @@ def woltka(qclient, job_id, parameters, out_dir):
 
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
-                dbfk["module-to-pathway.map "] is not None:
+                dbfk["module-to-pathway.map"] is not None:
             fp_biom = f'{out_dir}/pathway.biom'
             if exists(fp_biom):
                 ainfo.append(
