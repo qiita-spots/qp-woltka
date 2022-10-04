@@ -21,34 +21,35 @@ def merge(prep, base, glob, name, rename):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
     chunk_size = 10
-    table = None
+    full = None
 
     search = os.path.join(base, glob)
     tables = glob_.glob(search)
     for block in range(0, len(tables), chunk_size):
         chunk = tables[block:block + chunk_size]
-        chunk_tables = []
-        for f in chunk:
+
+        loaded = []
+        for c in chunk:
             skip = True
-            if biom.util.is_hdf5_file(f):
+            if biom.util.is_hdf5_file(c):
                 skip = False
             else:
-                with open(f) as fh:
+                with open(c) as fh:
                     for i, l in enumerate(fh):
                         if i >= 1 and l:
                             skip = False
                             break
             if not skip:
-                chunk_tables.append(biom.load_table(f))
+                loaded.append(biom.load_table(c))
 
-            if table is None:
-                assert len(chunk_tables) >= 2
-                table = chunk_tables[0].concat(chunk_tables[1:])
-            else:
-                table = table.concat(chunk_tables)
+        if full is None:
+            assert len(loaded) >= 2
+            full = loaded[0].concat(loaded[1:])
+        else:
+            full = full.concat(loaded)
 
     with_extension = {}
-    for i in table.ids():
+    for i in full.ids():
         extension_stripped = i.split('.sam')[0]
         assert extension_stripped in prefix_to_name
         sname = prefix_to_name[extension_stripped]
@@ -57,7 +58,7 @@ def merge(prep, base, glob, name, rename):
             os.rename(os.path.join(base, '%s.xz' % i),
                       os.path.join(base, '%s.sam.xz' % sname))
 
-    collapsed = table.update_ids(with_extension)
+    collapsed = full.update_ids(with_extension)
 
     with h5py.File(f'{base}/{name}.biom', 'w') as out:
         collapsed.to_hdf5(out, 'fast-merge')
