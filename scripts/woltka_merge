@@ -40,7 +40,9 @@ def merge(prep, base, glob, name, rename):
                             skip = False
                             break
             if not skip:
-                loaded.append(biom.load_table(c))
+                temp = biom.load_table(c)
+                if temp.shape != (0, 0):
+                    loaded.append(temp)
 
         if full is None:
             assert len(loaded) >= 2
