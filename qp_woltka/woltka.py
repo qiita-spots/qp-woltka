@@ -246,9 +246,9 @@ def woltka_to_array(directory, output, database_bowtie2,
             fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
                          '-o reaction.biom')
             fcmds.append(f'{wcdm} reaction.biom -m '
-                         '{dbfk["reaction-to-module.map"]} -o module.biom')
+                         f'{dbfk["reaction-to-module.map"]} -o module.biom')
             fcmds.append(f'{wcdm} module.biom -m '
-                         '{dbfk["module-to-pathway.map"]} -o pathway.biom')
+                         f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
     else:
         # for "simplicity" we will inject the `--rename` flag to the last
         # merge command (between all the parameters and the last &)
