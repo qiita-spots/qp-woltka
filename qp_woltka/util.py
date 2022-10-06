@@ -25,8 +25,9 @@ def get_dbs(db_folder):
         if isdir(folder_path):
             files = listdir(folder_path)
             # the bowtie2 db format is name.#.bt2 so getting just the name
-            db_fp = [f for f in files if f.endswith('.bt2') or
-                     f.endswith('.bt2l')][0].rsplit('.', 2)[0]
+            db_fp = [f for f in files if (f.endswith('.bt2') or
+                     f.endswith('.bt2l')) and 'rev' not in f][0].rsplit(
+                        '.', 2)[0]
             dbs[folder] = join(folder_path, db_fp)
 
     return (dbs)

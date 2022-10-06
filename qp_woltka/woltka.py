@@ -142,13 +142,13 @@ def _process_database_files(database_fp):
         database_files['gene_coordinates'] = gene_coordinates[0]
         # if there are gene_coordinates, there might be function translations
         dname = dirname(database_fp)
-        if 'function' in glob(f'{dname}/*'):
-            if 'kegg' in glob(f'{dname}/function/*'):
-                dt = f'{dname}/function/kegg/'
-                files = glob('{dt}*')
-                for v in database_files['kegg'].values():
-                    if v in files:
-                        database_files['kegg'][v] = f'{dt}/{v}'
+        if f'{dname}/function' in glob(f'{dname}/*'):
+            if f'{dname}/function/kegg' in glob(f'{dname}/function/*'):
+                dt = f'{dname}/function/kegg'
+                files = glob(f'{dt}/*')
+                for k in database_files['kegg'].keys():
+                    if f'{dt}/{k}' in files:
+                        database_files['kegg'][k] = f'{dt}/{k}'
 
     return database_files
 
@@ -242,13 +242,13 @@ def woltka_to_array(directory, output, database_bowtie2,
                          '-o ec.biom')
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
-                dbfk["module-to-pathway.map "] is not None:
+                dbfk["module-to-pathway.map"] is not None:
             fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
                          '-o reaction.biom')
             fcmds.append(f'{wcdm} reaction.biom -m '
-                         '{dbfk["reaction-to-module.map"]} -o module.biom')
+                         f'{dbfk["reaction-to-module.map"]} -o module.biom')
             fcmds.append(f'{wcdm} module.biom -m '
-                         '{dbfk["module-to-pathway.map"]} -o pathway.biom')
+                         f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
     else:
         # for "simplicity" we will inject the `--rename` flag to the last
         # merge command (between all the parameters and the last &)
@@ -284,7 +284,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              # skip
              "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
              f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
-             "if [ ! -f ${f}*/species.biom ]; then if ! grep -xq "
+             "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
              "'0.00% overall alignment rate' *_${COUNTER}.err; "
              "then PROCESS=0; fi; fi; done",
              "if [ 1 -eq $PROCESS ]; then ",
@@ -382,7 +382,7 @@ def woltka(qclient, job_id, parameters, out_dir):
 
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
-                dbfk["module-to-pathway.map "] is not None:
+                dbfk["module-to-pathway.map"] is not None:
             fp_biom = f'{out_dir}/pathway.biom'
             if exists(fp_biom):
                 ainfo.append(
