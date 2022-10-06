@@ -147,8 +147,8 @@ def _process_database_files(database_fp):
                 dt = f'{dname}/function/kegg'
                 files = glob(f'{dt}/*')
                 for k in database_files['kegg'].keys():
-                    if f'{dt}/{v}' in files:
-                        database_files['kegg'][v] = f'{dt}/{v}'
+                    if f'{dt}/{k}' in files:
+                        database_files['kegg'][k] = f'{dt}/{k}'
 
     return database_files
 
