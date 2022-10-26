@@ -9,9 +9,8 @@
 # -----------------------------------------------------------------------------
 
 import sys
-from qp_woltka.util import mux
+from qp_woltka.util import demux
 
-
-files = sys.argv[1:]
-output = sys.stdout.buffer
-mux(files, output)
+input_ = sys.stdin.buffer
+output = sys.argv[1].encode('ascii')
+demux(input_, output)

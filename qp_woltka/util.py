@@ -19,11 +19,6 @@ plugin_details = {'name': 'qp-woltka',
                   'version': '2022.09',
                   'description': 'Woltka'}
 
-# https://linuxpip.org/broken-pipe-python-error/
-# Ignore SIG_PIPE and don't throw exceptions on it
-# http://docs.python.org/library/signal.html
-signal(SIGPIPE, SIG_DFL)
-
 
 def get_dbs(db_folder):
     dbs = dict()
@@ -72,6 +67,11 @@ def client_connect(url):
 
 
 def mux(files, output):
+    # https://linuxpip.org/broken-pipe-python-error/
+    # Ignore SIG_PIPE and don't throw exceptions on it
+    # http://docs.python.org/library/signal.html
+    signal(SIGPIPE, SIG_DFL)
+
     delimiter = b'@@@'
     newline = b'\n'
 
