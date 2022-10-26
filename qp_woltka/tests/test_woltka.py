@@ -12,11 +12,13 @@ from qiita_client import ArtifactInfo
 from os import remove, environ
 from os.path import exists, isdir, join, dirname
 from shutil import rmtree, copyfile
-from tempfile import mkdtemp
+from tempfile import mkdtemp, TemporaryDirectory
 from json import dumps
+import gzip
+import io
 
 from qp_woltka import plugin
-from qp_woltka.util import get_dbs, generate_woltka_dflt_params
+from qp_woltka.util import get_dbs, generate_woltka_dflt_params, mux, demux
 from qp_woltka.woltka import woltka_to_array, woltka
 
 
@@ -440,6 +442,38 @@ class WoltkaTests(PluginTestCase):
                             prep_file, url, job_id)
         self.assertEqual(str(error.exception), "The run_prefix values are "
                          "not unique for each sample")
+
+    def test_mux(self):
+        f1 = b"@foo\nATGC\n+\nIIII\n"
+        f2 = b"@bar\nAAAA\n+\nIIII\n"
+        exp = b"@foo@@@foofile\nATGC\n+\nIIII\n@bar@@@barfile\nAAAA\n+\nIIII\n"
+        with TemporaryDirectory() as d:
+            f1fp = d + '/foofile.fastq'
+            f2fp = d + '/barfile.fastq'
+            ofp = d + '/output'
+            with gzip.open(f1fp, 'wb') as fp:
+                fp.write(f1)
+            with gzip.open(f2fp, 'wb') as fp:
+                fp.write(f2)
+            with open(ofp, 'wb') as output:
+                mux([f1fp, f2fp], output)
+            with open(ofp, 'rb') as result:
+                obs = result.read()
+
+        self.assertEqual(obs, exp)
+
+    def test_demux(self):
+        input_ = io.BytesIO(
+            b"foo@@@foofile\tATGC\t+\tIIII\nbar@@@barfile\tAAAA\t+\tIIII\n")
+        expfoo = b"foo\tATGC\t+\tIIII\n"
+        expbar = b"bar\tAAAA\t+\tIIII\n"
+        with TemporaryDirectory() as d:
+            demux(input_, d.encode('ascii'))
+            foo = open(d + '/foofile.sam', 'rb').read()
+            bar = open(d + '/barfile.sam', 'rb').read()
+
+        self.assertEqual(foo, expfoo)
+        self.assertEqual(bar, expbar)
 
 
 if __name__ == '__main__':
