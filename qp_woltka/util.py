@@ -9,6 +9,9 @@ from os import environ, listdir
 from os.path import join, isdir, expanduser
 from configparser import ConfigParser
 
+import gzip
+from signal import signal, SIGPIPE, SIG_DFL
+
 from qiita_client import QiitaClient
 
 
@@ -61,3 +64,66 @@ def client_connect(url):
                           server_cert=config.get('oauth2', 'SERVER_CERT'))
 
     return qclient
+
+
+def mux(files, output):
+    # https://linuxpip.org/broken-pipe-python-error/
+    # Ignore SIG_PIPE and don't throw exceptions on it
+    # http://docs.python.org/library/signal.html
+    signal(SIGPIPE, SIG_DFL)
+
+    delimiter = b'@@@'
+    newline = b'\n'
+
+    # the name used here is the filename, it is not read orientation agnostic,
+    # should it be?
+    for f in files:
+        name = f.split('/')[-1]
+        name = name.split('.fastq')[0].encode('ascii')
+
+        fp = gzip.open(f)
+        id_ = iter(fp)
+        seq = iter(fp)
+        dumb = iter(fp)
+        qual = iter(fp)
+        for i, s, d, q in zip(id_, seq, dumb, qual):
+            base_i = i.strip().split(b' ', 1)[0]
+            new_i = base_i + delimiter + name + newline
+
+            output.write(new_i)
+            output.write(s)
+            output.write(d)
+            output.write(q)
+
+
+def demux(input_, output):
+    delimiter = b'@@@'
+    tab = b'\t'
+    mode = 'ab'  # IMPORTANT: we are opening in append not write
+    ext = b'.sam'
+    sep = b'/'
+
+    # read each record
+    # parse the filename out
+    # if the file is not open, open it
+    # we are assuming the records are coming in grouped by file
+    # however the method will work if records are for whatever
+    # reason interleaved
+    current_fname = None
+    current_fp = None
+
+    for line in input_:
+        id_, remainder = line.split(tab, 1)
+        id_, fname = id_.rsplit(delimiter, 1)
+        fname = fname.strip()
+
+        if fname != current_fname:
+            if current_fp is not None:
+                current_fp.close()
+
+            current_fp = open(output + sep + fname + ext, mode)
+            current_fname = fname
+
+        current_fp.write(id_)
+        current_fp.write(tab)
+        current_fp.write(remainder)
