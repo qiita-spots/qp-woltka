@@ -11,7 +11,6 @@ from math import ceil
 from os import environ
 from os.path import join, basename, exists, dirname
 from glob import glob
-import re
 
 from qiita_client import ArtifactInfo
 
@@ -22,103 +21,7 @@ WALLTIME = '40:00:00'
 MERGE_MEMORY = '140g'
 MERGE_WALLTIME = '30:00:00'
 MAX_RUNNING = 8
-
-
-# this is a almost exact copy/paste from the original
-# qp_woltka/support_files/to-job-array.py
-def _to_array(directory, output, max_running, ppn, walltime, environment,
-              command_format, memory, name, output_extension, files):
-    # sanity checking
-    assert len(files) > 0
-    assert ppn > 0
-    assert re.match(r'\d+:\d\d:\d\d', walltime) is not None
-    assert '{infile}' in command_format
-    assert '{outfile}' in command_format
-
-    # 1024 -> maximum number of job array IDs
-    max_jobs = 1024
-    n_files = len(files)
-
-    # if we have too many files, break pack them into the individual
-    # jobs. So, if we had 2000 files, we would create 1000 jobs of
-    # each which process 2 files. If we had 1500, we would create
-    # 750 jobs each processing 2 files.
-    if n_files > max_jobs:
-        per_job = int(ceil(n_files / max_jobs))
-        n_jobs = int(ceil(n_files / per_job))
-    else:
-        per_job = 1
-        n_jobs = n_files
-
-    # the details describe each input file, and its output file
-    details_name = join(output, f'{name}.array-details')
-    with open(details_name, 'w') as details:
-        for f in files:
-            bn = basename(f)
-            details.write(f'{f}\t{output}/{bn}.{output_extension}\n')
-
-    # all the setup pieces
-    lines = ['#!/bin/bash',
-             '#SBATCH -p qiita',
-             '#SBATCH --mail-user "qiita.help@gmail.com"',
-             f'#SBATCH --job-name {name}',
-             '#SBATCH -N 1',
-             f'#SBATCH -n {ppn}',
-             f'#SBATCH --time {walltime}',
-             f'#SBATCH --mem {memory}',
-             f'#SBATCH --output {output}/{name}_%a.log',
-             f'#SBATCH --error {output}/{name}_%a.err',
-             f'#SBATCH --array 1-{n_jobs}%{max_running}',
-             f'cd {output}',
-             f'{environment}',
-             'date',  # start time
-             'hostname',  # executing system
-             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
-             'offset=${SLURM_ARRAY_TASK_ID}']
-
-    # if we have more than one file per job, we need to adjust our offset
-    # position accordingly. If we had three files per job, then the first
-    # job processes lines 1, 2, and 3 of the details. The second job
-    # processes lines 4, 5, 6. Note that the SLURM_ARRAY_TASK_ID is 1-based not
-    # 0-based.
-    if per_job > 1:
-        lines.append(f"offset=$(( $offset * {per_job} ))")
-
-    # reversed due to the substraction with the offset, so that we process
-    # lines N, N+1, N+2, etc in the details file.
-    for i in reversed(range(per_job)):
-        lines.append(f'step=$(( $offset - {i} ))')
-
-        # do not let the last job in the array overstep
-        lines.append(f'if [[ $step -gt {n_files} ]]; then exit 0; fi')
-
-        # if we're okay, get the next set of arguments
-        lines.append(f'args{i}=$(head -n $step {details_name} | tail -n 1)')
-
-        # f-string is broken up so the awk program is not interpreted
-        # as a component of the f-string
-        lines.append(
-            f"infile{i}=$(echo -e $args{i}" + " | awk '{ print $1 }')")
-        lines.append(
-            f"outfile{i}=$(echo -e $args{i}" + " | awk '{ print $2 }')")
-
-        # wrap the command calls in "fail on error", and then disable it. The
-        # reason to enable (-e) and disable (+e) is some of the other shell
-        # scripting may *correctly* produce a nonzero exit status, like the
-        # calls to the [ program.
-        lines.append('set -e')
-        cmd_args = {'infile': f"$infile{i}", 'outfile': f"$outfile{i}"}
-        lines.append(command_format.format(**cmd_args))
-        lines.append('set +e')
-    lines.append('date')  # end time
-
-    # write out the script
-    sub_fp = join(output, f'{name}.slurm')
-    with open(sub_fp, 'w') as job:
-        job.write('\n'.join(lines))
-        job.write('\n')
-
-    return sub_fp
+TASKS_IN_SCRIPT = 10
 
 
 def _process_database_files(database_fp):
@@ -158,17 +61,10 @@ def woltka_to_array(directory, output, database_bowtie2,
     """Creates files for submission of per sample bowtie2 and woltka
     """
     environment = environ["ENVIRONMENT"]
-    kwargs = {'directory': directory,
-              'output': output,
-              'max_running': MAX_RUNNING,
-              'ppn': PPN,
-              'walltime': WALLTIME,
-              'memory': MEMORY,
-              'name': name,
-              'environment': environment,
-              'output_extension': 'sam'}
 
     db_files = _process_database_files(database_bowtie2)
+    db_folder = dirname(database_bowtie2)
+    db_name = basename(database_bowtie2)
 
     prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
 
@@ -180,44 +76,9 @@ def woltka_to_array(directory, output, database_bowtie2,
         raise ValueError(
             'The run_prefix values are not unique for each sample')
 
-    kwargs['files'] = [join(directory, rp) for rp in prep.run_prefix.values]
-
-    # woltka assumes R1 and R2 are combined even though it doesn't use the
-    # paired end data, so let's concatenate based off the prefixes first.
-    # note: 'cat' is safe with gzip'd data, see:
-    # https://stackoverflow.com/a/8005155
-    concat = 'cat {infile}*.fastq.gz > {outfile}.fastq.gz'
-
-    # Bowtie2 command structure based on
-    # https://github.com/BenLangmead/bowtie2/issues/311
-    bowtie2 = f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
-              '-q {outfile}.fastq.gz -S {outfile}.sam --seed 42 ' + \
-              '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
-              '--rdg "0,1" --rfg "0,1" --score-min ' + \
-              '"L,0,-0.05" --no-head --no-unal'
-    xz = f'xz -9 -T{PPN} -c ' + '{outfile}.sam > {outfile}.xz'
+    files = [join(directory, rp) for rp in prep.run_prefix.values]
 
     ranks = ["free", "none"]
-    woltka = 'woltka classify -i {outfile}.sam ' + \
-             '-o {outfile}.woltka-taxa ' + \
-             '--no-demux ' + \
-             f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)}'
-
-    # compute per-gene/functional results
-    if db_files['gene_coordinates'] is not None:
-        woltka_per_gene = 'woltka classify -i {outfile}.sam ' + \
-                          f'-c {db_files["gene_coordinates"]} ' + \
-                          '-o {outfile}.woltka-per-gene ' + \
-                          '--no-demux'
-        cmd_fmt = f'{concat}; {bowtie2}; {woltka}; {woltka_per_gene}; {xz}'
-    else:
-        cmd_fmt = f'{concat}; {bowtie2}; {woltka}; {xz}'
-
-    # first we'll use the concatenation command, then run bowtie2,
-    # finally we'll run woltka
-    kwargs['command_format'] = cmd_fmt
-
     # now, let's establish the merge script.
     merges = []
     merge_inv = f'woltka_merge --prep {preparation_information} ' + \
@@ -295,15 +156,101 @@ def woltka_to_array(directory, output, database_bowtie2,
              'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
-
-    # construct the job array
-    main_fp = _to_array(**kwargs)
-
     # write out the merge script
     merge_fp = join(output, f'{name}.merge.slurm')
     with open(merge_fp, 'w') as out:
         out.write('\n'.join(lines))
         out.write('\n')
+
+    # the details describe each input file, and its output file
+    details_name = join(output, f'{name}.array-details')
+    with open(details_name, 'w') as details:
+        for f in files:
+            bn = basename(f)
+            details.write(f'{f}\t{output}/{bn}.sam\n')
+
+    # construct the job array
+    n_files = len(files)
+    n_array_jobs = int(ceil(n_files / TASKS_IN_SCRIPT))
+
+    # Bowtie2 command structure based on
+    # https://github.com/BenLangmead/bowtie2/issues/311
+    bowtie2 = 'mux ${files} | ' + \
+              f'bowtie2 -p {PPN} ' + '-x {database_bowtie2} ' + \
+              '-q - --seed 42 ' + \
+              '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
+              '--rdg "0,1" --rfg "0,1" --score-min ' + \
+              '"L,0,-0.05" --no-head --no-unal' + \
+              '| demux ${output}'
+    woltka = 'woltka classify -i {outfile}.sam ' + \
+             '-o {outfile}.woltka-taxa ' + \
+             '--no-demux ' + \
+             f'--lineage {db_files["taxonomy"]} ' + \
+             f'--rank {",".join(ranks)}'
+
+    # all the setup pieces
+    lines = ['#!/bin/bash',
+             '#SBATCH -p qiita',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name {name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {PPN}',
+             f'#SBATCH --time {WALLTIME}',
+             f'#SBATCH --mem {MEMORY}',
+             f'#SBATCH --output {output}/{name}_%a.log',
+             f'#SBATCH --error {output}/{name}_%a.err',
+             f'#SBATCH --array 1-{n_array_jobs}%{MAX_RUNNING}',
+             f'cd {output}',
+             f'{environment}',
+             'date',  # start time
+             'hostname',  # executing system
+             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
+             f'TASKS_IN_SCRIPT={TASKS_IN_SCRIPT}',
+             f'dbbase={db_folder}',
+             f'dbname={db_name}',
+             'iter_start=$(( ((${SLURM_ARRAY_TASK_ID}-1)*'
+             '${TASKS_IN_SCRIPT})+1 ))',
+             'iter_end=$(( ${SLURM_ARRAY_TASK_ID}*${TASKS_IN_SCRIPT} ))',
+             # The output path is the same directory as the input, in which
+             # case, it should be "okay" to pull the name from the first record
+             'output_full=$(head -n 1 $details | cut -f 1)',
+             'output=$(dirname ${output_full})',
+             'files=$(head -n $iter_end $details | tail -n $TASKS_IN_SCRIPT '
+             '| cut -f 1 | tr "\n" " ")',
+             bowtie2,
+             '# for each one of our input files, form woltka commands, ',
+             '# and farm off to gnu parallel',
+             'for f in ${files}',
+             'do',
+             '  # get its name relative to output',
+             '  fname=${output}/$(basename $f .fastq.gz)',
+             '  sam=${fname}.sam',
+             f'  echo "{woltka}"']
+
+    if db_files['gene_coordinates'] is not None:
+        lines.append('echo "woltka classify -i {outfile}.sam '
+                     f'-c {db_files["gene_coordinates"]} '
+                     '-o ${fname}.woltka-per-gene --no-demux')
+    lines.append('done | parallel -j 8')
+
+    # finally, compress each one of our sam files
+    lines.extend([
+        'for f in ${files}',
+        'do',
+        '  # get its name relative to output',
+        '  fname=${output}/$(basename $f .fastq.gz)',
+        '  sam=${fname}.sam',
+        '  # compress it',
+        '  echo "xz -1 -T1 $sam"',
+        'done | parallel -j 8'])
+
+    lines.append('date')  # end time
+
+    # write out the script
+    main_fp = join(output, f'{name}.slurm')
+    with open(main_fp, 'w') as job:
+        job.write('\n'.join(lines))
+        job.write('\n')
 
     return main_fp, merge_fp
 
