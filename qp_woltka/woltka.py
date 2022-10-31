@@ -208,7 +208,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
              f'dbbase={db_folder}',
              f'dbname={db_name}',
-             f'details={details_name}'
+             f'details={details_name}',
              'iter_start=$(( ((${SLURM_ARRAY_TASK_ID}-1)*'
              '${TASKS_IN_SCRIPT})+1 ))',
              'iter_end=$(( ${SLURM_ARRAY_TASK_ID}*${TASKS_IN_SCRIPT} ))',
