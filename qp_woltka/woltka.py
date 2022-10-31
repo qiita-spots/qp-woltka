@@ -201,6 +201,7 @@ def woltka_to_array(directory, output, database_bowtie2,
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_array_jobs}%{MAX_RUNNING}',
              f'cd {output}',
+             f'prep_full_path={preparation_information}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system

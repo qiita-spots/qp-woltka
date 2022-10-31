@@ -13,4 +13,8 @@ from qp_woltka.util import demux
 
 input_ = sys.stdin.buffer
 output = sys.argv[1].encode('ascii')
-demux(input_, output)
+prep_filepath = sys.argv[2].encode('ascii')
+
+
+
+demux(input_, output, prep_filepath)

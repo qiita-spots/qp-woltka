@@ -96,7 +96,7 @@ def mux(files, output):
             output.write(q)
 
 
-def demux(input_, output):
+def demux(input_, output, prep_filepath):
     delimiter = b'@@@'
     tab = b'\t'
     mode = 'ab'  # IMPORTANT: we are opening in append not write
