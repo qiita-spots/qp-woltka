@@ -221,7 +221,7 @@ def woltka_to_array(input_files, output, database_bowtie2,
     if db_files['gene_coordinates'] is not None:
         lines.append('  echo "woltka classify -i ${f} '
                      f'-c {db_files["gene_coordinates"]} '
-                     '-o ${f}.woltka-per-gene --no-demux')
+                     '-o ${f}.woltka-per-gene --no-demux"')
     lines.append('done | parallel -j 8')
 
     # finally, compress each one of our sam files

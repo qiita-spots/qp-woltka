@@ -296,7 +296,7 @@ class WoltkaTests(PluginTestCase):
             '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
             f'--lineage {database}.tax --rank free,none"\n',
             f'  echo "woltka classify -i ${{f}} -c {database}.coords '
-            '-o ${f}.woltka-per-gene --no-demux\n',
+            '-o ${f}.woltka-per-gene --no-demux"\n',
             'done | parallel -j 8\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
             'do\n',
