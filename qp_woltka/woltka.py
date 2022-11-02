@@ -7,10 +7,10 @@
 # -----------------------------------------------------------------------------
 import pandas as pd
 
-from math import ceil
 from os import environ
 from os.path import join, basename, exists, dirname
 from glob import glob
+from itertools import zip_longest
 
 from qiita_client import ArtifactInfo
 
@@ -56,7 +56,7 @@ def _process_database_files(database_fp):
     return database_files
 
 
-def woltka_to_array(directory, output, database_bowtie2,
+def woltka_to_array(input_files, output, database_bowtie2,
                     preparation_information, url, name):
     """Creates files for submission of per sample bowtie2 and woltka
     """
@@ -76,13 +76,24 @@ def woltka_to_array(directory, output, database_bowtie2,
         raise ValueError(
             'The run_prefix values are not unique for each sample')
 
-    files = [join(directory, rp) for rp in prep.run_prefix.values]
+    # creating the sample_details_* files so each task has it's own details
+    fwd = sorted(input_files['raw_forward_seqs'])
+    rev = []
+    if 'raw_reverse_seqs' in input_files:
+        rev = sorted(input_files['raw_reverse_seqs'])
+    n_files = 1
+    for i, (f, r) in enumerate(zip_longest(fwd, rev)):
+        if i >= n_files*TASKS_IN_SCRIPT:
+            n_files += 1
+        with open(f'{output}/sample_details_{n_files}.txt', 'a+') as fh:
+            fh.write(f'{f}\n')
+            if r is not None:
+                fh.write(f'{r}\n')
 
     ranks = ["free", "none"]
     # now, let's establish the merge script.
     merges = []
-    merge_inv = f'woltka_merge --prep {preparation_information} ' + \
-                f'--base {output} '
+    merge_inv = f'woltka_merge --base {output} '
     fcmds = []
     for r in ranks:
         merges.append(" ".join([merge_inv,
@@ -143,17 +154,17 @@ def woltka_to_array(directory, output, database_bowtie2,
              # includes ignoring files that have "0.00% overall alignment rate"
              # in their log file, which is when nothing aligns and is fine to
              # skip
-             "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-             f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
-             "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
-             "'0.00% overall alignment rate' *_${COUNTER}.err; "
-             "then PROCESS=0; fi; fi; done",
-             "if [ 1 -eq $PROCESS ]; then ",
+             # # "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
+             # # f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
+             # # "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
+             # # "'0.00% overall alignment rate' *_${COUNTER}.err; "
+             # # "then PROCESS=0; fi; fi; done",
+             # # "if [ 1 -eq $PROCESS ]; then ",
              '\n'.join(merges),
              "wait",
              '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
-             'fi',
+             # # 'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
     # write out the merge script
@@ -162,28 +173,18 @@ def woltka_to_array(directory, output, database_bowtie2,
         out.write('\n'.join(lines))
         out.write('\n')
 
-    # the details describe each input file, and its output file
-    details_name = join(output, f'{name}.array-details')
-    with open(details_name, 'w') as details:
-        for f in files:
-            bn = basename(f)
-            details.write(f'{f}\t{output}/{bn}.sam\n')
-
-    # construct the job array
-    n_files = len(files)
-    n_array_jobs = int(ceil(n_files / TASKS_IN_SCRIPT))
-
     # Bowtie2 command structure based on
     # https://github.com/BenLangmead/bowtie2/issues/311
     bowtie2 = 'mux ${files} | ' + \
-              f'bowtie2 -p {PPN} ' + '-x {database_bowtie2} ' + \
+              f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
               '-q - --seed 42 ' + \
               '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min ' + \
               '"L,0,-0.05" --no-head --no-unal' + \
-              '| demux ${output}'
-    woltka = 'woltka classify -i {outfile}.sam ' + \
-             '-o {outfile}.woltka-taxa ' + \
+              '| demux ${output} ' + preparation_information + \
+              ' | sort | uniq > sample_processing_${SLURM_ARRAY_TASK_ID}.log'
+    woltka = 'woltka classify -i ${f} ' + \
+             '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
              f'--rank {",".join(ranks)}'
@@ -199,51 +200,36 @@ def woltka_to_array(directory, output, database_bowtie2,
              f'#SBATCH --mem {MEMORY}',
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
-             f'#SBATCH --array 1-{n_array_jobs}%{MAX_RUNNING}',
+             f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
              f'prep_full_path={preparation_information}',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
-             f'TASKS_IN_SCRIPT={TASKS_IN_SCRIPT}',
              'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
              f'dbbase={db_folder}',
              f'dbname={db_name}',
-             f'details={details_name}',
-             'iter_start=$(( ((${SLURM_ARRAY_TASK_ID}-1)*'
-             '${TASKS_IN_SCRIPT})+1 ))',
-             'iter_end=$(( ${SLURM_ARRAY_TASK_ID}*${TASKS_IN_SCRIPT} ))',
-             # The output path is the same directory as the input, in which
-             # case, it should be "okay" to pull the name from the first record
-             'output_full=$(head -n 1 $details | cut -f 1)',
-             'output=$(dirname ${output_full})',
-             'files=$(head -n $iter_end $details | tail -n $TASKS_IN_SCRIPT '
-             '| cut -f 1 | tr "\\n" " ")',
+             f'output={output}',
+             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`',
              bowtie2,
              '# for each one of our input files, form woltka commands, ',
              '# and farm off to gnu parallel',
-             'for f in ${files}',
+             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
              'do',
-             '  # get its name relative to output',
-             '  fname=${output}/$(basename $f .fastq.gz)',
-             '  sam=${fname}.sam',
              f'  echo "{woltka}"']
 
     if db_files['gene_coordinates'] is not None:
-        lines.append('echo "woltka classify -i {outfile}.sam '
+        lines.append('  echo "woltka classify -i ${f} '
                      f'-c {db_files["gene_coordinates"]} '
-                     '-o ${fname}.woltka-per-gene --no-demux')
+                     '-o ${f}.woltka-per-gene --no-demux')
     lines.append('done | parallel -j 8')
 
     # finally, compress each one of our sam files
     lines.extend([
-        'for f in ${files}',
+        'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
         'do',
-        '  # get its name relative to output',
-        '  fname=${output}/$(basename $f .fastq.gz)',
-        '  sam=${fname}.sam',
         '  # compress it',
-        '  echo "xz -1 -T1 $sam"',
+        '  echo "xz -1 -T1 ${f}"',
         'done | parallel -j 8'])
 
     lines.append('date')  # end time

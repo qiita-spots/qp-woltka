@@ -58,7 +58,8 @@ def execute(url, job_id, out_dir):
 
         # Getting all the files from the database
         main_fp, merge_fp = woltka_to_array(
-            directory, out_dir, parameters['Database'], prep_file, url, job_id)
+            artifact_info['files'], out_dir, parameters['Database'],
+            prep_file, url, job_id)
 
         # Submitting jobs and returning id
         main_job = run(['sbatch', main_fp], stdout=PIPE)
