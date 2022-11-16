@@ -10,7 +10,11 @@
 
 import sys
 from qp_woltka.util import demux
+import pandas as pd
 
 input_ = sys.stdin.buffer
 output = sys.argv[1].encode('ascii')
-demux(input_, output)
+prep_filepath = sys.argv[2]
+prep = pd.read_csv(prep_filepath, sep='\t', dtype=str)
+
+demux(input_, output, prep)

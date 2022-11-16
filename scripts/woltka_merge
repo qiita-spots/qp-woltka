@@ -3,21 +3,16 @@
 import os
 import biom
 import glob as glob_
-import pandas as pd
 import h5py
 import click
 
 
 @click.command()
-@click.option('--prep', type=click.Path(exists=True), required=True)
 @click.option('--base', type=click.Path(exists=True), required=True)
 @click.option('--glob', type=str, required=True)
 @click.option('--name', type=str, required=True)
 @click.option('--rename/--no-rename', type=bool, default=False)
-def merge(prep, base, glob, name, rename):
-    prep = pd.read_csv(prep, sep='\t', dtype=str)
-    prefix_to_name = prep.set_index('run_prefix')['sample_name'].to_dict()
-
+def merge(base, glob, name, rename):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
     chunk_size = 10
@@ -45,25 +40,15 @@ def merge(prep, base, glob, name, rename):
                     loaded.append(temp)
 
         if full is None:
-            assert len(loaded) >= 2
-            full = loaded[0].concat(loaded[1:])
+            if len(loaded) == 1:
+                full = loaded[0]
+            else:
+                full = loaded[0].concat(loaded[1:])
         else:
             full = full.concat(loaded)
 
-    with_extension = {}
-    for i in full.ids():
-        extension_stripped = i.split('.sam')[0]
-        assert extension_stripped in prefix_to_name
-        sname = prefix_to_name[extension_stripped]
-        with_extension[i] = sname
-        if rename:
-            os.rename(os.path.join(base, '%s.xz' % i),
-                      os.path.join(base, '%s.sam.xz' % sname))
-
-    collapsed = full.update_ids(with_extension)
-
     with h5py.File(f'{base}/{name}.biom', 'w') as out:
-        collapsed.to_hdf5(out, 'fast-merge')
+        full.to_hdf5(out, 'fast-merge')
 
 
 if __name__ == '__main__':

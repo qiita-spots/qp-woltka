@@ -10,15 +10,17 @@ from unittest import main
 from qiita_client.testing import PluginTestCase
 from qiita_client import ArtifactInfo
 from os import remove, environ
-from os.path import exists, isdir, join, dirname
+from os.path import exists, isdir, join, dirname, basename
 from shutil import rmtree, copyfile
 from tempfile import mkdtemp, TemporaryDirectory
 from json import dumps
 import gzip
 import io
+import pandas as pd
 
 from qp_woltka import plugin
-from qp_woltka.util import get_dbs, generate_woltka_dflt_params, mux, demux
+from qp_woltka.util import (
+    get_dbs, generate_woltka_dflt_params, mux, demux, search_by_filename)
 from qp_woltka.woltka import woltka_to_array, woltka
 
 
@@ -118,9 +120,6 @@ class WoltkaTests(PluginTestCase):
 
         # retriving info of the prep/artifact just created
         artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
-        directory = directory.pop()
         prep_info = artifact_info['prep_information']
         prep_info = self.qclient.get(
             '/qiita_db/prep_template/%s/' % prep_info[0])
@@ -129,7 +128,7 @@ class WoltkaTests(PluginTestCase):
         url = 'this-is-my-url'
         database = self.params['Database']
         main_fp, merge_fp = woltka_to_array(
-            directory, out_dir, database, prep_file, url, job_id)
+            artifact_info['files'], out_dir, database, prep_file, url, job_id)
 
         self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
         self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
@@ -150,29 +149,35 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mem 125g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-2%8\n',
+            '#SBATCH --array 1-1%8\n',
             f'cd {out_dir}\n',
+            f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}\n',
-            'offset=${SLURM_ARRAY_TASK_ID}\n',
-            'step=$(( $offset - 0 ))\n',
-            'if [[ $step -gt 2 ]]; then exit 0; fi\n',
-            f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
-            ' | tail -n 1)\n',
-            "infile0=$(echo -e $args0 | awk '{ print $1 }')\n",
-            "outfile0=$(echo -e $args0 | awk '{ print $2 }')\n",
-            'set -e\n',
-            'cat $infile0*.fastq.gz > $outfile0.fastq.gz; bowtie2 -p 8 -x '
-            f'{database} -q $outfile0.fastq.gz -S $outfile0.sam --seed 42 '
+            f'dbbase={dirname(database)}\n',
+            f'dbname={basename(database)}\n',
+            f'output={out_dir}\n',
+            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
+            'mux ${files} | bowtie2 -p 8 -x '
+            f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head '
-            '--no-unal; woltka classify -i $outfile0.sam -o '
-            f'$outfile0.woltka-taxa --no-demux --lineage {database}.tax '
-            '--rank free,none; xz -9 -T8 -c $outfile0.sam > '
-            '$outfile0.xz\n',
-            'set +e\n',
+            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            f'{prep_file} | sort | uniq > '
+            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
+            '# for each one of our input files, form woltka commands, \n',
+            '# and farm off to gnu parallel\n',
+            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
+            'do\n',
+            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
+            f'--lineage {database}.tax --rank free,none"\n',
+            'done | parallel -j 8\n',
+            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
+            'do\n',
+            '  # compress it\n',
+            '  echo "xz -1 -T1 ${f}"\n',
+            'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -193,20 +198,13 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
-            "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-            f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
-            "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err; "
-            "then PROCESS=0; fi; fi; done\n",
-            "if [ 1 -eq $PROCESS ]; then \n",
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            f'woltka_merge --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
-            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
@@ -246,9 +244,6 @@ class WoltkaTests(PluginTestCase):
 
         # retriving info of the prep/artifact just created
         artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
-        directory = directory.pop()
         prep_info = artifact_info['prep_information']
         prep_info = self.qclient.get(
             '/qiita_db/prep_template/%s/' % prep_info[0])
@@ -256,7 +251,7 @@ class WoltkaTests(PluginTestCase):
 
         url = 'this-is-my-url'
         main_fp, merge_fp = woltka_to_array(
-            directory, out_dir, database, prep_file, url, job_id)
+            artifact_info['files'], out_dir, database, prep_file, url, job_id)
 
         self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
         self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
@@ -277,30 +272,37 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mem 125g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-2%8\n',
+            '#SBATCH --array 1-1%8\n',
             f'cd {out_dir}\n',
+            f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}\n',
-            'offset=${SLURM_ARRAY_TASK_ID}\n',
-            'step=$(( $offset - 0 ))\n',
-            'if [[ $step -gt 2 ]]; then exit 0; fi\n',
-            f'args0=$(head -n $step {out_dir}/{job_id}.array-details'
-            ' | tail -n 1)\n',
-            "infile0=$(echo -e $args0 | awk '{ print $1 }')\n",
-            "outfile0=$(echo -e $args0 | awk '{ print $2 }')\n",
-            'set -e\n',
-            'cat $infile0*.fastq.gz > $outfile0.fastq.gz; bowtie2 -p 8 -x '
-            f'{database} -q $outfile0.fastq.gz -S $outfile0.sam --seed 42 '
+            f'dbbase={dirname(database)}\n',
+            f'dbname={basename(database)}\n',
+            f'output={out_dir}\n',
+            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
+            'mux ${files} | bowtie2 -p 8 -x '
+            f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal; woltka classify '
-            '-i $outfile0.sam -o $outfile0.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none; '
-            f'woltka classify -i $outfile0.sam -c {database}.coords '
-            '-o $outfile0.woltka-per-gene --no-demux; xz -9 -T8 -c '
-            '$outfile0.sam > $outfile0.xz\n',
-            'set +e\n',
+            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            f'{prep_file} | sort | uniq > '
+            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
+            '# for each one of our input files, form woltka commands, \n',
+            '# and farm off to gnu parallel\n',
+            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
+            'do\n',
+            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
+            f'--lineage {database}.tax --rank free,none"\n',
+            f'  echo "woltka classify -i ${{f}} -c {database}.coords '
+            '-o ${f}.woltka-per-gene --no-demux"\n',
+            'done | parallel -j 8\n',
+            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
+            'do\n',
+            '  # compress it\n',
+            '  echo "xz -1 -T1 ${f}"\n',
+            'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -321,22 +323,15 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
-            "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-            f'{out_dir}/*.array-details`; do let COUNTER=COUNTER+1; '
-            "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
-            "'0.00% overall alignment rate' *_${COUNTER}.err; "
-            "then PROCESS=0; fi; fi; done\n",
-            "if [ 1 -eq $PROCESS ]; then \n",
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            f'woltka_merge --base {out_dir}  --name '
             'none --glob "*.woltka-taxa/none.biom" &\n',
-            f'woltka_merge --prep {prep_file} --base {out_dir}  --name '
+            f'woltka_merge --base {out_dir}  --name '
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
-            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
@@ -462,15 +457,32 @@ class WoltkaTests(PluginTestCase):
 
         self.assertEqual(obs, exp)
 
+    def test_search_by_filename(self):
+        lookup = {'foo_bar': 'baz',
+                  'foo': 'bar'}
+        tests = [('foo_bar_thing', 'baz'),
+                 ('foo_stuff_blah', 'bar'),
+                 ('foo.stuff.blah', 'bar'),
+                 ('foo_bar', 'baz')]
+        for test, exp in tests:
+            obs = search_by_filename(test, lookup)
+            self.assertEqual(obs, exp)
+
+        with self.assertRaises(KeyError):
+            search_by_filename('does_not_exist', lookup)
+
     def test_demux(self):
-        input_ = io.BytesIO(
-            b"foo@@@foofile\tATGC\t+\tIIII\nbar@@@barfile\tAAAA\t+\tIIII\n")
+        prep = pd.DataFrame([['sample_foo', 'foofile'],
+                             ['sample_bar', 'barfile']],
+                            columns=['sample_name', 'run_prefix'])
+        input_ = io.BytesIO(b"foo@@@foofile_R1\tATGC\t+\tIIII\nbar@@@"
+                            b"barfile_R2\tAAAA\t+\tIIII\n")
         expfoo = b"foo\tATGC\t+\tIIII\n"
         expbar = b"bar\tAAAA\t+\tIIII\n"
         with TemporaryDirectory() as d:
-            demux(input_, d.encode('ascii'))
-            foo = open(d + '/foofile.sam', 'rb').read()
-            bar = open(d + '/barfile.sam', 'rb').read()
+            demux(input_, d.encode('ascii'), prep)
+            foo = open(d + '/sample_foo.sam', 'rb').read()
+            bar = open(d + '/sample_bar.sam', 'rb').read()
 
         self.assertEqual(foo, expfoo)
         self.assertEqual(bar, expbar)

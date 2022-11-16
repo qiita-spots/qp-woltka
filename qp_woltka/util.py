@@ -96,7 +96,27 @@ def mux(files, output):
             output.write(q)
 
 
-def demux(input_, output):
+def search_by_filename(fname, lookup):
+    if fname in lookup:
+        return lookup[fname]
+
+    original = fname
+    while '_' in fname:
+        fname = fname.rsplit('_', 1)[0]
+        if fname in lookup:
+            return lookup[fname]
+
+    fname = original
+    while '.' in fname:
+        fname = fname.rsplit('.', 1)[0]
+        if fname in lookup:
+            return lookup[fname]
+
+    raise KeyError("Cannot determine run_prefix for %s" % original)
+
+
+def demux(input_, output, prep):
+    lookup = prep.set_index('run_prefix')['sample_name'].to_dict()
     delimiter = b'@@@'
     tab = b'\t'
     mode = 'ab'  # IMPORTANT: we are opening in append not write
@@ -121,8 +141,12 @@ def demux(input_, output):
             if current_fp is not None:
                 current_fp.close()
 
-            current_fp = open(output + sep + fname + ext, mode)
+            sample = search_by_filename(
+                fname.decode('utf8'), lookup).encode('ascii')
+            fullname = output + sep + sample + ext
+            current_fp = open(fullname, mode)
             current_fname = fname
+            print(fullname.decode('ascii'))
 
         current_fp.write(id_)
         current_fp.write(tab)
