@@ -163,7 +163,7 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',
@@ -286,7 +286,7 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',

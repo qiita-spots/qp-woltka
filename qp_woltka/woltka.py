@@ -16,7 +16,8 @@ from qiita_client import ArtifactInfo
 
 # resources per job
 PPN = 8
-MEMORY = '125g'
+MEMORY = '90g'
+LARGE_MEMORY = '150g'
 WALLTIME = '40:00:00'
 MERGE_MEMORY = '140g'
 MERGE_WALLTIME = '30:00:00'
@@ -181,13 +182,17 @@ def woltka_to_array(input_files, output, database_bowtie2,
               '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min ' + \
               '"L,0,-0.05" --no-head --no-unal' + \
-              '| demux ${output} ' + preparation_information + \
+              ' | demux ${output} ' + preparation_information + \
               ' | sort | uniq > sample_processing_${SLURM_ARRAY_TASK_ID}.log'
     woltka = 'woltka classify -i ${f} ' + \
              '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
              f'--rank {",".join(ranks)}'
+
+    memory = MEMORY
+    if 'RS250' in database_bowtie2:
+        memory = LARGE_MEMORY
 
     # all the setup pieces
     lines = ['#!/bin/bash',
@@ -197,7 +202,7 @@ def woltka_to_array(input_files, output, database_bowtie2,
              '#SBATCH -N 1',
              f'#SBATCH -n {PPN}',
              f'#SBATCH --time {WALLTIME}',
-             f'#SBATCH --mem {MEMORY}',
+             f'#SBATCH --mem {memory}',
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
