@@ -15,7 +15,7 @@ import click
 def merge(base, glob, name, rename):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
-    chunk_size = 10
+    chunk_size = 30
     full = None
 
     search = os.path.join(base, glob)
