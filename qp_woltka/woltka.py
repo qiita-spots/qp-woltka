@@ -191,7 +191,7 @@ def woltka_to_array(input_files, output, database_bowtie2,
              f'--rank {",".join(ranks)}'
 
     memory = MEMORY
-    if 'RS250' in database_bowtie2:
+    if 'RS210' in database_bowtie2:
         memory = LARGE_MEMORY
 
     # all the setup pieces
