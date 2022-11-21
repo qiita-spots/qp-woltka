@@ -75,25 +75,33 @@ def mux(files, output):
     delimiter = b'@@@'
     newline = b'\n'
 
+    errors = []
     # the name used here is the filename, it is not read orientation agnostic,
     # should it be?
     for f in files:
         name = f.split('/')[-1]
         name = name.split('.fastq')[0].encode('ascii')
 
-        fp = gzip.open(f)
-        id_ = iter(fp)
-        seq = iter(fp)
-        dumb = iter(fp)
-        qual = iter(fp)
-        for i, s, d, q in zip(id_, seq, dumb, qual):
-            base_i = i.strip().split(b' ', 1)[0]
-            new_i = base_i + delimiter + name + newline
+        try:
+            fp = gzip.open(f)
+            id_ = iter(fp)
+            seq = iter(fp)
+            dumb = iter(fp)
+            qual = iter(fp)
+            for i, s, d, q in zip(id_, seq, dumb, qual):
+                base_i = i.strip().split(b' ', 1)[0]
+                new_i = base_i + delimiter + name + newline
 
-            output.write(new_i)
-            output.write(s)
-            output.write(d)
-            output.write(q)
+                output.write(new_i)
+                output.write(s)
+                output.write(d)
+                output.write(q)
+        except Exception as e:
+            errors.append(f'{f}\t{e}')
+
+    if errors:
+        with open('errors.log', 'w') as error_log:
+            error_log.write('\n'.join(errors))
 
 
 def search_by_filename(fname, lookup):

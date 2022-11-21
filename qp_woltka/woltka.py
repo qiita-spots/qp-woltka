@@ -16,7 +16,8 @@ from qiita_client import ArtifactInfo
 
 # resources per job
 PPN = 8
-MEMORY = '125g'
+MEMORY = '90g'
+LARGE_MEMORY = '150g'
 WALLTIME = '40:00:00'
 MERGE_MEMORY = '140g'
 MERGE_WALLTIME = '30:00:00'
@@ -149,22 +150,17 @@ def woltka_to_array(input_files, output, database_bowtie2,
              'hostname',  # executing system
              'echo $SLURM_JOBID',
              'set -e',
-             # making sure that all the expected files are actually created,
-             # if not do not execute the merging steps. This validation
-             # includes ignoring files that have "0.00% overall alignment rate"
-             # in their log file, which is when nothing aligns and is fine to
-             # skip
-             # # "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-             # # f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
-             # # "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
-             # # "'0.00% overall alignment rate' *_${COUNTER}.err; "
-             # # "then PROCESS=0; fi; fi; done",
-             # # "if [ 1 -eq $PROCESS ]; then ",
+             # if the error file doesn't exi and the number of alignment
+             # reports is equal to the numbers of jobs that started : process
+             # the bioms
+             "sruns=`grep 'overall alignment rate' *.err | wc -l`",
+             'sjobs=`ls sample_details_* | wc -l`',
+             'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then',
              '\n'.join(merges),
              "wait",
              '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
-             # # 'fi',
+             'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
     # write out the merge script
@@ -181,13 +177,17 @@ def woltka_to_array(input_files, output, database_bowtie2,
               '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min ' + \
               '"L,0,-0.05" --no-head --no-unal' + \
-              '| demux ${output} ' + preparation_information + \
+              ' | demux ${output} ' + preparation_information + \
               ' | sort | uniq > sample_processing_${SLURM_ARRAY_TASK_ID}.log'
     woltka = 'woltka classify -i ${f} ' + \
              '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
              f'--rank {",".join(ranks)}'
+
+    memory = MEMORY
+    if 'RS210' in database_bowtie2:
+        memory = LARGE_MEMORY
 
     # all the setup pieces
     lines = ['#!/bin/bash',
@@ -197,7 +197,7 @@ def woltka_to_array(input_files, output, database_bowtie2,
              '#SBATCH -N 1',
              f'#SBATCH -n {PPN}',
              f'#SBATCH --time {WALLTIME}',
-             f'#SBATCH --mem {MEMORY}',
+             f'#SBATCH --mem {memory}',
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',

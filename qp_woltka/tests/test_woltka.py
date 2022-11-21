@@ -146,7 +146,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 125g\n',
+            '#SBATCH --mem 90g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-1%8\n',
@@ -163,7 +163,7 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',
@@ -198,6 +198,9 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
+            "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
+            "sjobs=`ls sample_details_* | wc -l`\n",
+            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
@@ -205,6 +208,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
@@ -269,7 +273,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 125g\n',
+            '#SBATCH --mem 90g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-1%8\n',
@@ -286,7 +290,7 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal| demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',
@@ -323,6 +327,9 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
+            "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
+            "sjobs=`ls sample_details_* | wc -l`\n",
+            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
@@ -332,6 +339,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
