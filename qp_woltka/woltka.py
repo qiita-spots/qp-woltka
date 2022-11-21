@@ -150,22 +150,17 @@ def woltka_to_array(input_files, output, database_bowtie2,
              'hostname',  # executing system
              'echo $SLURM_JOBID',
              'set -e',
-             # making sure that all the expected files are actually created,
-             # if not do not execute the merging steps. This validation
-             # includes ignoring files that have "0.00% overall alignment rate"
-             # in their log file, which is when nothing aligns and is fine to
-             # skip
-             # # "PROCESS=1; COUNTER=0; for f in `awk '{print $NF}' "
-             # # f'{output}/*.array-details`; do let COUNTER=COUNTER+1; '
-             # # "if [ ! -f ${f}*/free.biom ]; then if ! grep -xq "
-             # # "'0.00% overall alignment rate' *_${COUNTER}.err; "
-             # # "then PROCESS=0; fi; fi; done",
-             # # "if [ 1 -eq $PROCESS ]; then ",
+             # if the error file doesn't exi and the number of alignment
+             # reports is equal to the numbers of jobs that started : process
+             # the bioms
+             "sruns=`grep 'overall alignment rate' *.err | wc -l`",
+             'sjobs=`ls sample_details_* | wc -l`',
+             'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then',
              '\n'.join(merges),
              "wait",
              '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
-             # # 'fi',
+             'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
     # write out the merge script
