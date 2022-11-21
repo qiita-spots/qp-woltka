@@ -200,7 +200,7 @@ class WoltkaTests(PluginTestCase):
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then\n',
+            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
@@ -329,7 +329,7 @@ class WoltkaTests(PluginTestCase):
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then\n',
+            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
