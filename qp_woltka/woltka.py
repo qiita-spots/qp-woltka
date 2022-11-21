@@ -155,7 +155,7 @@ def woltka_to_array(input_files, output, database_bowtie2,
              # the bioms
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
              'sjobs=`ls sample_details_* | wc -l`',
-             'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then',
+             'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then',
              '\n'.join(merges),
              "wait",
              '\n'.join(fcmds),

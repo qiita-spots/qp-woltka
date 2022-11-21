@@ -198,6 +198,9 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
+            "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
+            "sjobs=`ls sample_details_* | wc -l`\n",
+            'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
@@ -205,6 +208,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
@@ -323,6 +327,9 @@ class WoltkaTests(PluginTestCase):
             'hostname\n',
             'echo $SLURM_JOBID\n',
             'set -e\n',
+            "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
+            "sjobs=`ls sample_details_* | wc -l`\n",
+            'if [[ ! -f "{output}/errors.log" && $sruns -eq $sjobs ]]; then\n',
             f'woltka_merge --base {out_dir}  --name '
             'free --glob "*.woltka-taxa/free.biom" &\n',
             f'woltka_merge --base {out_dir}  --name '
@@ -332,6 +339,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
         self.assertEqual(merge, exp_merge)
