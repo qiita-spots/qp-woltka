@@ -10,7 +10,6 @@ import pandas as pd
 from os import environ
 from os.path import join, basename, exists, dirname
 from glob import glob
-from itertools import zip_longest
 
 from qiita_client import ArtifactInfo
 
@@ -57,7 +56,7 @@ def _process_database_files(database_fp):
     return database_files
 
 
-def woltka_to_array(input_files, output, database_bowtie2,
+def woltka_to_array(files, output, database_bowtie2,
                     preparation_information, url, name):
     """Creates files for submission of per sample bowtie2 and woltka
     """
@@ -77,13 +76,8 @@ def woltka_to_array(input_files, output, database_bowtie2,
         raise ValueError(
             'The run_prefix values are not unique for each sample')
 
-    # creating the sample_details_* files so each task has it's own details
-    fwd = sorted(input_files['raw_forward_seqs'])
-    rev = []
-    if 'raw_reverse_seqs' in input_files:
-        rev = sorted(input_files['raw_reverse_seqs'])
     n_files = 1
-    for i, (f, r) in enumerate(zip_longest(fwd, rev)):
+    for i, (k, (f, r)) in enumerate(files.items()):
         if i >= n_files*TASKS_IN_SCRIPT:
             n_files += 1
         with open(f'{output}/sample_details_{n_files}.txt', 'a+') as fh:

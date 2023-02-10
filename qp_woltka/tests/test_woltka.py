@@ -404,7 +404,8 @@ class WoltkaTests(PluginTestCase):
 
         # retriving info of the prep/artifact just created
         artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
+        directory = {dirname(ffs['filepath'])
+                     for _, fs in artifact_info['files'].items()
                      for ffs in fs}
         directory = directory.pop()
         prep_info = artifact_info['prep_information']
@@ -430,21 +431,10 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         # retriving info of the prep/artifact just created
-        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
-        directory = directory.pop()
-        prep_info = artifact_info['prep_information']
-        prep_info = self.qclient.get(
-            '/qiita_db/prep_template/%s/' % prep_info[0])
-        prep_file = prep_info['prep-file']
-
-        url = 'this-is-my-url'
         with self.assertRaises(ValueError) as error:
-            woltka_to_array(directory, out_dir, self.params['Database'],
-                            prep_file, url, job_id)
-        self.assertEqual(str(error.exception), "The run_prefix values are "
-                         "not unique for each sample")
+            files, prep = self.qclient.artifact_and_preparation_files(aid)
+        self.assertEqual(str(error.exception), "Multiple run prefixes match "
+                         "this fwd read: S22205_S104_L001_R1_001.fastq.gz")
 
     def test_mux(self):
         f1 = b"@foo\nATGC\n+\nIIII\n"
