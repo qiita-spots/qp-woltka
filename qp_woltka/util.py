@@ -120,6 +120,10 @@ def search_by_filename(fname, lookup):
         if fname in lookup:
             return lookup[fname]
 
+    for rp in lookup:
+        if original.startswith(rp):
+            return lookup[rp]
+
     raise KeyError("Cannot determine run_prefix for %s" % original)
 
 
