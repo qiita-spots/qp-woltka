@@ -133,7 +133,7 @@ class WoltkaTests(PluginTestCase):
         with open(merge_fp) as f:
             merge = f.readlines()
 
-        prep_file = f'{out_dir}/prep_info.tsv'
+        prep_file = join(out_dir, 'prep_info.tsv')
         exp_main = [
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
@@ -256,7 +256,7 @@ class WoltkaTests(PluginTestCase):
         with open(merge_fp) as f:
             merge = f.readlines()
 
-        prep_file = f'{out_dir}/prep_info.tsv'
+        prep_file = join(out_dir, 'prep_info.tsv')
         exp_main = [
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',

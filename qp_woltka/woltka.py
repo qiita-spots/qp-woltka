@@ -67,7 +67,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     for i, (k, (f, r)) in enumerate(files.items()):
         if i >= n_files*TASKS_IN_SCRIPT:
             n_files += 1
-        with open(f'{output}/sample_details_{n_files}.txt', 'a+') as fh:
+        with open(join(output, 'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(f'{f["filepath"]}\n')
             if r is not None:
                 fh.write(f'{r["filepath"]}\n')
@@ -152,7 +152,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
 
     # Bowtie2 command structure based on
     # https://github.com/BenLangmead/bowtie2/issues/311
-    preparation_information = f'{output}/prep_info.tsv'
+    preparation_information = join(output, 'prep_info.tsv')
     prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
     bowtie2 = 'mux ${files} | ' + \
               f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
