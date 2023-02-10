@@ -68,9 +68,9 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         if i >= n_files*TASKS_IN_SCRIPT:
             n_files += 1
         with open(f'{output}/sample_details_{n_files}.txt', 'a+') as fh:
-            fh.write(f'{f}\n')
+            fh.write(f'{f["filepath"]}\n')
             if r is not None:
-                fh.write(f'{r}\n')
+                fh.write(f'{r["filepath"]}\n')
 
     ranks = ["free", "none"]
     # now, let's establish the merge script.
