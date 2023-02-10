@@ -5,8 +5,6 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
-import pandas as pd
-
 from os import environ
 from os.path import join, basename, exists, dirname
 from glob import glob
@@ -56,8 +54,7 @@ def _process_database_files(database_fp):
     return database_files
 
 
-def woltka_to_array(files, output, database_bowtie2,
-                    preparation_information, url, name):
+def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     """Creates files for submission of per sample bowtie2 and woltka
     """
     environment = environ["ENVIRONMENT"]
@@ -65,16 +62,6 @@ def woltka_to_array(files, output, database_bowtie2,
     db_files = _process_database_files(database_bowtie2)
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
-
-    prep = pd.read_csv(preparation_information, sep='\t', dtype=str)
-
-    if 'run_prefix' not in prep.columns:
-        raise ValueError(
-            'Prep information is missing the required run_prefix column')
-
-    if len(prep.run_prefix.unique()) != prep.shape[0]:
-        raise ValueError(
-            'The run_prefix values are not unique for each sample')
 
     n_files = 1
     for i, (k, (f, r)) in enumerate(files.items()):
@@ -165,6 +152,8 @@ def woltka_to_array(files, output, database_bowtie2,
 
     # Bowtie2 command structure based on
     # https://github.com/BenLangmead/bowtie2/issues/311
+    preparation_information = f'{output}/prep_info.tsv'
+    prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
     bowtie2 = 'mux ${files} | ' + \
               f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
               '-q - --seed 42 ' + \
