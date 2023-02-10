@@ -118,17 +118,12 @@ class WoltkaTests(PluginTestCase):
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
 
-        # retriving info of the prep/artifact just created
-        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        prep_info = artifact_info['prep_information']
-        prep_info = self.qclient.get(
-            '/qiita_db/prep_template/%s/' % prep_info[0])
-        prep_file = prep_info['prep-file']
+        files, prep = self.qclient.artifact_and_preparation_files(aid)
 
         url = 'this-is-my-url'
         database = self.params['Database']
         main_fp, merge_fp = woltka_to_array(
-            artifact_info['files'], out_dir, database, prep_file, url, job_id)
+            files, out_dir, database, prep, url, job_id)
 
         self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
         self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
@@ -138,6 +133,7 @@ class WoltkaTests(PluginTestCase):
         with open(merge_fp) as f:
             merge = f.readlines()
 
+        prep_file = join(out_dir, 'prep_info.tsv')
         exp_main = [
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
@@ -237,8 +233,8 @@ class WoltkaTests(PluginTestCase):
     def test_woltka_to_array_wol(self):
         # inserting new prep template
         prep_info_dict = {
-            'SKB8.640193': {'run_prefix': 'S22205_S104_L001_R1'},
-            'SKD8.640184': {'run_prefix': 'S22282_S102_L001_R1'}}
+            'SKB8.640193': {'run_prefix': 'S22205_S104_L001_R'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102_L001_R'}}
         database = join(self.db_path, 'wol/WoLmin')
 
         pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict, database)
@@ -246,16 +242,11 @@ class WoltkaTests(PluginTestCase):
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
 
-        # retriving info of the prep/artifact just created
-        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        prep_info = artifact_info['prep_information']
-        prep_info = self.qclient.get(
-            '/qiita_db/prep_template/%s/' % prep_info[0])
-        prep_file = prep_info['prep-file']
+        files, prep = self.qclient.artifact_and_preparation_files(aid)
 
         url = 'this-is-my-url'
         main_fp, merge_fp = woltka_to_array(
-            artifact_info['files'], out_dir, database, prep_file, url, job_id)
+             files, out_dir, database, prep, url, job_id)
 
         self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
         self.assertEqual(join(out_dir, f'{job_id}.merge.slurm'), merge_fp)
@@ -265,6 +256,7 @@ class WoltkaTests(PluginTestCase):
         with open(merge_fp) as f:
             merge = f.readlines()
 
+        prep_file = join(out_dir, 'prep_info.tsv')
         exp_main = [
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
@@ -402,22 +394,9 @@ class WoltkaTests(PluginTestCase):
         out_dir = mkdtemp()
         self._clean_up_files.append(out_dir)
 
-        # retriving info of the prep/artifact just created
-        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
-        directory = directory.pop()
-        prep_info = artifact_info['prep_information']
-        prep_info = self.qclient.get(
-            '/qiita_db/prep_template/%s/' % prep_info[0])
-        prep_file = prep_info['prep-file']
-
-        url = 'this-is-my-url'
-        with self.assertRaises(ValueError) as error:
-            woltka_to_array(directory, out_dir, self.params['Database'],
-                            prep_file, url, job_id)
-        self.assertEqual(str(error.exception), "Prep information is missing "
-                         "the required run_prefix column")
+        with self.assertRaises(KeyError) as error:
+            self.qclient.artifact_and_preparation_files(aid)
+        self.assertEqual(str(error.exception), "'run_prefix'")
 
     def test_creation_error_no_unique_run_prefix(self):
         # run prefix doesn't exist
@@ -430,21 +409,10 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         # retriving info of the prep/artifact just created
-        artifact_info = self.qclient.get("/qiita_db/artifacts/%s/" % aid)
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
-        directory = directory.pop()
-        prep_info = artifact_info['prep_information']
-        prep_info = self.qclient.get(
-            '/qiita_db/prep_template/%s/' % prep_info[0])
-        prep_file = prep_info['prep-file']
-
-        url = 'this-is-my-url'
         with self.assertRaises(ValueError) as error:
-            woltka_to_array(directory, out_dir, self.params['Database'],
-                            prep_file, url, job_id)
-        self.assertEqual(str(error.exception), "The run_prefix values are "
-                         "not unique for each sample")
+            files, prep = self.qclient.artifact_and_preparation_files(aid)
+        self.assertEqual(str(error.exception), "Multiple run prefixes match "
+                         "this fwd read: S22205_S104_L001_R1_001.fastq.gz")
 
     def test_mux(self):
         f1 = b"@foo\nATGC\n+\nIIII\n"

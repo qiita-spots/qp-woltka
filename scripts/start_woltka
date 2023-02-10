@@ -36,14 +36,10 @@ def execute(url, job_id, out_dir):
         artifact_id = parameters['input']
         del parameters['input']
 
-        # Get the artifact filepath information
-        artifact_info = qclient.get("/qiita_db/artifacts/%s/" % artifact_id)
-        # artifact_info['files'] returns a dict of {filetype: files} so we
-        # need to parse the actual input directory and make sure it's the same
-        # for all the files; it should _never_ be different but better to have
-        # a test for this
-        directory = {dirname(ffs) for _, fs in artifact_info['files'].items()
-                     for ffs in fs}
+        files, prep = qclient.artifact_and_preparation_files(artifact_id)
+
+        directory = {dirname(ffs['filepath']) for _, fs in files.items()
+                     for ffs in fs if ffs is not None}
         if len(directory) != 1:
             msg = ('There is more than one input directory [%s]; please '
                    'contact qiita.help@gmail.com' % str(directory))
@@ -51,15 +47,9 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        # Get the artifact metadata
-        prep_info = qclient.get('/qiita_db/prep_template/%s/'
-                                % artifact_info['prep_information'][0])
-        prep_file = prep_info['prep-file']
-
         # Getting all the files from the database
         main_fp, merge_fp = woltka_to_array(
-            artifact_info['files'], out_dir, parameters['Database'],
-            prep_file, url, job_id)
+            files, out_dir, parameters['Database'], prep, url, job_id)
 
         # Submitting jobs and returning id
         main_job = run(['sbatch', main_fp], stdout=PIPE)

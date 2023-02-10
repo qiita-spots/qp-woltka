@@ -53,7 +53,8 @@ setup(name='qp-woltka',
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
                         'h5py >= 2.3.1', 'biom-format',
+                        # forcing 0.1.4 because Qiita uses this version
                         'woltka @ https://github.com/'
-                        'qiyunzhu/woltka/archive/master.zip'],
+                        'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip'],
       classifiers=classifiers
       )
