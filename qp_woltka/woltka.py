@@ -67,7 +67,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     for i, (k, (f, r)) in enumerate(files.items()):
         if i >= n_files*TASKS_IN_SCRIPT:
             n_files += 1
-        with open(join(output, 'sample_details_{n_files}.txt'), 'a+') as fh:
+        with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(f'{f["filepath"]}\n')
             if r is not None:
                 fh.write(f'{r["filepath"]}\n')
