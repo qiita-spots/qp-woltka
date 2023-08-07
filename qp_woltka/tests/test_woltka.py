@@ -326,6 +326,7 @@ class WoltkaTests(PluginTestCase):
         copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
         copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
+        copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
         success, ainfo, msg = woltka(
             self.qclient, job_id, self.params, out_dir)
 
