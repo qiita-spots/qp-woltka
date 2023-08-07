@@ -141,7 +141,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              "wait",
              '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz; '
-             'tar zxvf coverages.tgz coverages\n',
+             'tar zxvf coverages.tgz coverages\n'
              'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
