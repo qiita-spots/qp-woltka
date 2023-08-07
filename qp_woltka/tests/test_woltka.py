@@ -196,6 +196,7 @@ class WoltkaTests(PluginTestCase):
         copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
         copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
+        copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
 
         success, ainfo, msg = woltka(
             self.qclient, job_id, self.params, out_dir)
@@ -206,9 +207,11 @@ class WoltkaTests(PluginTestCase):
         exp = [
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log')]),
+                          (f'{out_dir}/alignment.tar', 'log'),
+                          (f'{out_dir}/free/coverages.tgz', 'plan_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom')])]
+                         [(f'{out_dir}/none.biom', 'biom'),
+                          (f'{out_dir}/none/coverages.tgz', 'plan_text')])]
 
         self.assertCountEqual(ainfo, exp)
 
@@ -336,11 +339,14 @@ class WoltkaTests(PluginTestCase):
         exp = [
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log')]),
+                          (f'{out_dir}/alignment.tar', 'log'),
+                          (f'{out_dir}/free/coverages.tgz', 'plan_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom')]),
+                         [(f'{out_dir}/none.biom', 'biom'),
+                          (f'{out_dir}/none/coverages.tgz', 'plan_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
-                         [(f'{out_dir}/per-gene.biom', 'biom')])]
+                         [(f'{out_dir}/per-gene.biom', 'biom'),
+                          (f'{out_dir}/per_gene/coverages.tgz', 'plan_text')])]
 
         self.assertCountEqual(ainfo, exp)
 
