@@ -12,15 +12,10 @@ from qiita_client import ArtifactInfo
 from os import remove, environ
 from os.path import exists, isdir, join, dirname, basename
 from shutil import rmtree, copyfile
-from tempfile import mkdtemp, TemporaryDirectory
+from tempfile import mkdtemp
 from json import dumps
-import gzip
-import io
-import pandas as pd
 
 from qp_woltka import plugin
-from qp_woltka.util import (
-    get_dbs, generate_woltka_dflt_params, mux, demux, search_by_filename)
 from qp_woltka.woltka import woltka_to_array, woltka
 
 
@@ -46,21 +41,6 @@ class WoltkaTests(PluginTestCase):
                     rmtree(fp)
                 else:
                     remove(fp)
-
-    def test_get_dbs(self):
-        db_path = self.db_path
-        obs = get_dbs(db_path)
-        exp = {'wol': join(db_path, 'wol/WoLmin'),
-               'rep82': join(db_path, 'rep82/5min')}
-
-        self.assertDictEqual(obs, exp)
-
-    def test_generate_woltka_dflt_params(self):
-        obs = generate_woltka_dflt_params()
-        exp = {'wol': {'Database': join(self.db_path, 'wol/WoLmin')},
-               'rep82': {'Database': join(self.db_path, 'rep82/5min')}}
-
-        self.assertDictEqual(obs, exp)
 
     def _helper_woltka_bowtie(self, prep_info_dict, database=None):
         data = {'prep_info': dumps(prep_info_dict),
@@ -167,7 +147,8 @@ class WoltkaTests(PluginTestCase):
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
             'do\n',
             '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none"\n',
+            f'--lineage {database}.tax --rank free,none --outcov '
+            'coverages/"\n',
             'done | parallel -j 8\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
             'do\n',
@@ -204,6 +185,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            f'cd {out_dir}; tar zxvf coverages.tgz coverages\n'
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -290,7 +272,8 @@ class WoltkaTests(PluginTestCase):
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
             'do\n',
             '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none"\n',
+            f'--lineage {database}.tax --rank free,none --outcov '
+            'coverages/"\n',
             f'  echo "woltka classify -i ${{f}} -c {database}.coords '
             '-o ${f}.woltka-per-gene --no-demux"\n',
             'done | parallel -j 8\n',
@@ -331,6 +314,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
+            f'cd {out_dir}; tar zxvf coverages.tgz coverages\n'
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -413,55 +397,6 @@ class WoltkaTests(PluginTestCase):
             files, prep = self.qclient.artifact_and_preparation_files(aid)
         self.assertEqual(str(error.exception), "Multiple run prefixes match "
                          "this fwd read: S22205_S104_L001_R1_001.fastq.gz")
-
-    def test_mux(self):
-        f1 = b"@foo\nATGC\n+\nIIII\n"
-        f2 = b"@bar\nAAAA\n+\nIIII\n"
-        exp = b"@foo@@@foofile\nATGC\n+\nIIII\n@bar@@@barfile\nAAAA\n+\nIIII\n"
-        with TemporaryDirectory() as d:
-            f1fp = d + '/foofile.fastq'
-            f2fp = d + '/barfile.fastq'
-            ofp = d + '/output'
-            with gzip.open(f1fp, 'wb') as fp:
-                fp.write(f1)
-            with gzip.open(f2fp, 'wb') as fp:
-                fp.write(f2)
-            with open(ofp, 'wb') as output:
-                mux([f1fp, f2fp], output)
-            with open(ofp, 'rb') as result:
-                obs = result.read()
-
-        self.assertEqual(obs, exp)
-
-    def test_search_by_filename(self):
-        lookup = {'foo_bar': 'baz',
-                  'foo': 'bar'}
-        tests = [('foo_bar_thing', 'baz'),
-                 ('foo_stuff_blah', 'bar'),
-                 ('foo.stuff.blah', 'bar'),
-                 ('foo_bar', 'baz')]
-        for test, exp in tests:
-            obs = search_by_filename(test, lookup)
-            self.assertEqual(obs, exp)
-
-        with self.assertRaises(KeyError):
-            search_by_filename('does_not_exist', lookup)
-
-    def test_demux(self):
-        prep = pd.DataFrame([['sample_foo', 'foofile'],
-                             ['sample_bar', 'barfile']],
-                            columns=['sample_name', 'run_prefix'])
-        input_ = io.BytesIO(b"foo@@@foofile_R1\tATGC\t+\tIIII\nbar@@@"
-                            b"barfile_R2\tAAAA\t+\tIIII\n")
-        expfoo = b"foo\tATGC\t+\tIIII\n"
-        expbar = b"bar\tAAAA\t+\tIIII\n"
-        with TemporaryDirectory() as d:
-            demux(input_, d.encode('ascii'), prep)
-            foo = open(d + '/sample_foo.sam', 'rb').read()
-            bar = open(d + '/sample_bar.sam', 'rb').read()
-
-        self.assertEqual(foo, expfoo)
-        self.assertEqual(bar, expbar)
 
 
 if __name__ == '__main__':

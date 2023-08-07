@@ -141,6 +141,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              "wait",
              '\n'.join(fcmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
+             f'cd {output}; tar zxvf coverages.tgz coverages\n'
              'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
@@ -166,7 +167,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)}'
+             f'--rank {",".join(ranks)} --outcov coverages/'
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:

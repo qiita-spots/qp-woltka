@@ -8,6 +8,7 @@
 from os import environ, listdir
 from os.path import join, isdir, expanduser
 from configparser import ConfigParser
+from collections import defaultdict
 
 import gzip
 from signal import signal, SIGPIPE, SIG_DFL
@@ -163,3 +164,66 @@ def demux(input_, output, prep):
         current_fp.write(id_)
         current_fp.write(tab)
         current_fp.write(remainder)
+
+
+def merge_ranges(files):
+    # the lines below are borrowed from zebra filter but they are sligthly
+    # modified; mainly the autocompress parameter was deleted so it always
+    # autocompresses
+    class SortedRangeList:
+        def __init__(self):
+            self.ranges = []
+
+        def add_range(self, start, end):
+            self.ranges.append((start, end))
+            self.compress()
+
+        def compress(self):
+            # Sort ranges by start index
+            self.ranges.sort(key=lambda r: r[0])
+
+            new_ranges, start_val, end_val = [], None, None
+            for r in self.ranges:
+                if end_val is None:
+                    # case 1: no active range, start active range.
+                    start_val = r[0]
+                    end_val = r[1]
+                elif end_val >= r[0] - 1:
+                    # case 2: active range continues through this range
+                    # extend active range
+                    end_val = max(end_val, r[1])
+                else:  # if end_val < r[0] - 1:
+                    # case 3: active range ends before this range begins
+                    # write new range out, then start new active range
+                    new_range = (start_val, end_val)
+                    new_ranges.append(new_range)
+                    start_val = r[0]
+                    end_val = r[1]
+
+            if end_val is not None:
+                new_range = (start_val, end_val)
+                new_ranges.append(new_range)
+
+            self.ranges = new_ranges
+
+        def compute_length(self):
+            total = 0
+            for r in self.ranges:
+                total += r[1] - r[0] + 1
+            return total
+
+    merger = defaultdict(SortedRangeList)
+    for file in files:
+        with open(file, 'r') as f:
+            for range_line in f:
+                mems = range_line.split()
+                gotu = mems.pop(0)
+                for srange, erange in zip(*[iter(mems)]*2):
+                    merger[gotu].add_range(int(srange), int(erange))
+
+    lines = []
+    for gotu in merger:
+        ranges = '\t'.join([f'{i}' for x in merger[gotu].ranges for i in x])
+        lines.append(f'{gotu}\t{ranges}')
+
+    return lines
