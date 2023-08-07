@@ -84,7 +84,7 @@ jobs:
           pip --quiet install https://github.com/qiita-spots/qiita_client/archive/master.zip
 
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_server.crt
-          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
+          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test.cfg
           export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/
 
           for file in $(ls $QC_WOLTKA_DB_DP); do tar xvzf $QC_WOLTKA_DB_DP$file -C $QC_WOLTKA_DB_DP; done
@@ -106,7 +106,7 @@ jobs:
         run: |
           conda activate qiita
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_server.crt
-          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
+          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test.cfg
           sed "s#/home/runner/work/qiita/qiita#${PWD}/qiita-dev/#g" `pwd`/qiita-dev/qiita_core/support_files/config_test.cfg > ${QIITA_CONFIG_FP}
 
           export REDBIOM_HOST="http://localhost:7379"
@@ -138,7 +138,7 @@ jobs:
         run: |
           conda activate qp-woltka-0.1.4
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_server.crt
-          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
+          export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test.cfg
           export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
           export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/
           export PYTHONWARNINGS="ignore:Certificate for localhost has no \`subjectAltName\`"
