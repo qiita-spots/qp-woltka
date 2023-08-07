@@ -185,7 +185,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zxvf coverages.tgz coverages\n',
+            'tar zxvf coverages.tgz artifact.cov coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -314,7 +314,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zxvf coverages.tgz coverages\n',
+            'tar zxvf coverages.tgz artifact.cov coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
