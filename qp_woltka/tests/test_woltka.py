@@ -184,8 +184,8 @@ class WoltkaTests(PluginTestCase):
             'none --glob "*.woltka-taxa/none.biom" --rename &\n',
             'wait\n',
             '\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
-            f'cd {out_dir}; tar zxvf coverages.tgz coverages\n'
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
+            'tar zxvf coverages.tgz coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -313,8 +313,8 @@ class WoltkaTests(PluginTestCase):
             'per-gene --glob "*.woltka-per-gene" --rename &\n',
             'wait\n',
             '\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz\n',
-            f'cd {out_dir}; tar zxvf coverages.tgz coverages\n'
+            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
+            'tar zxvf coverages.tgz coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
