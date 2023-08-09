@@ -16,7 +16,7 @@ import pandas as pd
 
 from qp_woltka.util import (
     get_dbs, generate_woltka_dflt_params, mux, demux, search_by_filename,
-    merge_ranges)
+    merge_ranges, coverage_percentage)
 
 
 class UtilTests(TestCase):
@@ -103,6 +103,27 @@ class UtilTests(TestCase):
         exp = ['GXXX\t100\t400\t500\t600', 'GYYY\t100\t400\t500\t1000',
                'GZZZ\t200\t400\t500\t1500']
         self.assertEqual(merge_ranges(files), exp)
+
+    def test_coverage_percentage(self):
+        # testing with 3 cov
+        files = [
+            'qp_woltka/support_files/coverages/coverage_1.cov',
+            'qp_woltka/support_files/coverages/coverage_2.cov',
+            'qp_woltka/support_files/coverages/coverage_3.cov',
+        ]
+        length_map = 'qp_woltka/support_files/coverages/length_map.map'
+        exp = ['GXXX\t67.00', 'GYYY\t72.91', 'GZZZ\t60.10']
+        self.assertEqual(coverage_percentage(files, length_map), exp)
+
+        # testing with the archive.cov | note same exp values
+        self.assertEqual(coverage_percentage(
+            ['qp_woltka/support_files/coverages/artifact.cov'], length_map),
+            exp)
+
+        # testing errors
+        length_map = 'qp_woltka/support_files/coverages/length_map_bad.map'
+        with self.assertRaises(ValueError):
+            coverage_percentage(files, length_map)
 
 
 if __name__ == '__main__':

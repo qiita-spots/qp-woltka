@@ -5,7 +5,7 @@ import biom
 import glob as glob_
 import h5py
 import click
-from qp_woltka.util import merge_ranges
+from qp_woltka.util import merge_ranges, coverage_percentage
 
 
 @click.command()
@@ -53,8 +53,12 @@ def merge(base, glob, name, rename):
 
     if name == 'free':
         coverages = glob_.glob('coverages/*.cov')
-        with open(f'{base}/artifact.cov', 'w') as out:
+        artifact_cov = f'{base}/artifact.cov'
+        with open(artifact_cov, 'w') as out:
             out.write('\n'.join(merge_ranges(coverages)))
+
+        with open(f'{base}/coverage_percentage.txt', 'w') as out:
+            out.write('\n'.join(coverage_percentage([artifact_cov])))
 
 
 if __name__ == '__main__':

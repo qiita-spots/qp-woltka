@@ -166,7 +166,7 @@ def demux(input_, output, prep):
         current_fp.write(remainder)
 
 
-def merge_ranges(files):
+def _merge_ranges(files):
     # the lines below are borrowed from zebra filter but they are sligthly
     # modified; mainly the autocompress parameter was deleted so it always
     # autocompresses
@@ -221,9 +221,36 @@ def merge_ranges(files):
                 for srange, erange in zip(*[iter(mems)]*2):
                     merger[gotu].add_range(int(srange), int(erange))
 
+    return merger
+
+
+def merge_ranges(files):
+    merger = _merge_ranges(files)
+
     lines = []
     for gotu in merger:
         ranges = '\t'.join([f'{i}' for x in merger[gotu].ranges for i in x])
         lines.append(f'{gotu}\t{ranges}')
+
+    return lines
+
+
+def coverage_percentage(files, length_map):
+    with open(length_map, 'r') as f:
+        length_map = dict()
+        for line in f:
+            line = line.split()
+            length_map[line[0]] = int(line[1])
+
+    merger = _merge_ranges(files)
+
+    lines = []
+    for gotu in merger:
+        length = merger[gotu].compute_length()
+        coverage = float(length)/length_map[gotu]*100
+        if coverage > 100:
+            raise ValueError(f'{gotu} yielded {coverage}; please contact '
+                             'qiita.help@gmail.com')
+        lines.append('%s\t%.2f' % (gotu, coverage))
 
     return lines

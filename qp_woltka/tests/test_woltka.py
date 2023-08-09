@@ -185,7 +185,8 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zcvf coverages.tgz artifact.cov coverages\n',
+            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
+            'coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -209,10 +210,10 @@ class WoltkaTests(PluginTestCase):
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/alignment/coverages.tgz',
-                           'plan_text')]),
+                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
-                          (f'{out_dir}/none/coverages.tgz', 'plan_text')])]
+                          (f'{out_dir}/none/coverages.tgz', 'plain_text')])]
         self.assertCountEqual(ainfo, exp)
 
     def test_woltka_to_array_wol(self):
@@ -317,7 +318,8 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zcvf coverages.tgz artifact.cov coverages\n',
+            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
+            'coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -341,13 +343,14 @@ class WoltkaTests(PluginTestCase):
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/alignment/coverages.tgz',
-                           'plan_text')]),
+                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
-                          (f'{out_dir}/none/coverages.tgz', 'plan_text')]),
+                          (f'{out_dir}/none/coverages.tgz', 'plain_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
                          [(f'{out_dir}/per-gene.biom', 'biom'),
-                          (f'{out_dir}/per_gene/coverages.tgz', 'plan_text')])]
+                          (f'{out_dir}/per_gene/coverages.tgz',
+                           'plain_text')])]
 
         self.assertCountEqual(ainfo, exp)
 
