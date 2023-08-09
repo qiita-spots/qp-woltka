@@ -185,7 +185,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zxvf coverages.tgz artifact.cov coverages\n',
+            'tar zcvf coverages.tgz artifact.cov coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -212,6 +212,8 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
                           (f'{out_dir}/none/coverages.tgz', 'plan_text')])]
+        print(ainfo[0].files)
+        print(ainfo[1].files)
 
         self.assertCountEqual(ainfo, exp)
 
@@ -317,7 +319,7 @@ class WoltkaTests(PluginTestCase):
             'wait\n',
             '\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zxvf coverages.tgz artifact.cov coverages\n',
+            'tar zcvf coverages.tgz artifact.cov coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
