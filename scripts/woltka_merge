@@ -21,15 +21,11 @@ def merge(base, glob, name, rename):
 
     search = os.path.join(base, glob)
     tables = glob_.glob(search)
-    coverages = []
     for block in range(0, len(tables), chunk_size):
         chunk = tables[block:block + chunk_size]
 
         loaded = []
         for c in chunk:
-            if name == 'free':
-                bn = os.path.basename(c).replace('.biom', '.cov')
-                coverages.append(f'coverages/{bn}')
             skip = True
             if biom.util.is_hdf5_file(c):
                 skip = False
@@ -55,7 +51,8 @@ def merge(base, glob, name, rename):
     with h5py.File(f'{base}/{name}.biom', 'w') as out:
         full.to_hdf5(out, 'fast-merge')
 
-    if coverages:
+    if name == 'free':
+        coverages = glob_.glob('coverages/*.cov')
         with open(f'{base}/artifact.cov', 'w') as out:
             out.write('\n'.join(merge_ranges(coverages)))
 
