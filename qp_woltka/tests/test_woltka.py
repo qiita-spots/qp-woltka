@@ -208,13 +208,11 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/free/coverages.tgz', 'plan_text')]),
+                          (f'{out_dir}/alignment/coverages.tgz',
+                           'plan_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
                           (f'{out_dir}/none/coverages.tgz', 'plan_text')])]
-        print(ainfo[0].files)
-        print(ainfo[1].files)
-
         self.assertCountEqual(ainfo, exp)
 
     def test_woltka_to_array_wol(self):
@@ -342,7 +340,8 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('Alignment Profile', 'BIOM',
                          [(f'{out_dir}/free.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/free/coverages.tgz', 'plan_text')]),
+                          (f'{out_dir}/alignment/coverages.tgz',
+                           'plan_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
                           (f'{out_dir}/none/coverages.tgz', 'plan_text')]),

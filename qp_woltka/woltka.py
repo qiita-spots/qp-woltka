@@ -250,9 +250,9 @@ def woltka(qclient, job_id, parameters, out_dir):
     db_files = _process_database_files(parameters['Database'])
 
     def _coverage_copy(dest):
-        fp_coverages = f'{out_dir}/coverages.tgz'
+        fp_coverages = join(out_dir, 'coverages.tgz')
         mkdir(dest)
-        dest = f'{dest}/coverages.tgz'
+        dest = join(dest, 'coverages.tgz')
         copy2(fp_coverages, dest)
 
         return dest
