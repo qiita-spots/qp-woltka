@@ -82,10 +82,11 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     merge_inv = f'woltka_merge --base {output} '
     fcmds = []
     for r in ranks:
-        merges.append(" ".join([merge_inv,
-                                f'--name {r}',
-                                f'--glob "*.woltka-taxa/{r}.biom"',
-                                '&']))  # run all at once
+        cmd = [merge_inv, f'--name {r}', f'--glob "*.woltka-taxa/{r}.biom"']
+        if r == 'free' and 'length.map' in db_files:
+            cmd.append(f'--lenght_map {db_files["length.map"]}')
+        cmd.append('&')
+        merges.append(" ".join(cmd))
     if db_files['gene_coordinates'] is not None:
         merges.append(" ".join([merge_inv, '--name per-gene',
                                 '--glob "*.woltka-per-gene"',
