@@ -51,8 +51,8 @@ def _process_database_files(database_fp):
                 for k in database_files['kegg'].keys():
                     if f'{dt}/{k}' in files:
                         database_files['kegg'][k] = f'{dt}/{k}'
-    lmap_fp = f'{database_fp}/genomes/length.map'
-    if exists(lmap_fp)
+    lmap_fp = f'{dirname(database_fp)}/genomes/length.map'
+    if exists(lmap_fp):
         database_files['length.map'] = lmap_fp
 
     return database_files
