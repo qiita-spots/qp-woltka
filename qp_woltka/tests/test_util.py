@@ -26,15 +26,15 @@ class UtilTests(TestCase):
     def test_get_dbs(self):
         db_path = self.db_path
         obs = get_dbs(db_path)
-        exp = {'wol': join(db_path, 'wol/WoLmin'),
-               'rep82': join(db_path, 'rep82/5min')}
+        exp = {'wol': join(db_path, 'wol', 'WoLmin'),
+               'rep82': join(db_path, 'rep82', '5min')}
 
         self.assertDictEqual(obs, exp)
 
     def test_generate_woltka_dflt_params(self):
         obs = generate_woltka_dflt_params()
-        exp = {'wol': {'Database': join(self.db_path, 'wol/WoLmin')},
-               'rep82': {'Database': join(self.db_path, 'rep82/5min')}}
+        exp = {'wol': {'Database': join(self.db_path, 'wol', 'WoLmin')},
+               'rep82': {'Database': join(self.db_path, 'rep82', '5min')}}
 
         self.assertDictEqual(obs, exp)
 
@@ -43,9 +43,9 @@ class UtilTests(TestCase):
         f2 = b"@bar\nAAAA\n+\nIIII\n"
         exp = b"@foo@@@foofile\nATGC\n+\nIIII\n@bar@@@barfile\nAAAA\n+\nIIII\n"
         with TemporaryDirectory() as d:
-            f1fp = d + '/foofile.fastq'
-            f2fp = d + '/barfile.fastq'
-            ofp = d + '/output'
+            f1fp = join(d, 'foofile.fastq')
+            f2fp = join(d, 'barfile.fastq')
+            ofp = join(d, 'output')
             with gzip.open(f1fp, 'wb') as fp:
                 fp.write(f1)
             with gzip.open(f2fp, 'wb') as fp:
@@ -67,8 +67,8 @@ class UtilTests(TestCase):
         expbar = b"bar\tAAAA\t+\tIIII\n"
         with TemporaryDirectory() as d:
             demux(input_, d.encode('ascii'), prep)
-            foo = open(d + '/sample_foo.sam', 'rb').read()
-            bar = open(d + '/sample_bar.sam', 'rb').read()
+            foo = open(join(d, 'sample_foo.sam'), 'rb').read()
+            bar = open(join(d, 'sample_bar.sam'), 'rb').read()
 
         self.assertEqual(foo, expfoo)
         self.assertEqual(bar, expbar)
