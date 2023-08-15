@@ -5,9 +5,10 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
-from os import environ
+from os import environ, mkdir
 from os.path import join, basename, exists, dirname
 from glob import glob
+from shutil import copy2
 
 from qiita_client import ArtifactInfo
 
@@ -50,6 +51,9 @@ def _process_database_files(database_fp):
                 for k in database_files['kegg'].keys():
                     if f'{dt}/{k}' in files:
                         database_files['kegg'][k] = f'{dt}/{k}'
+    lmap_fp = f'{dirname(database_fp)}/genomes/length.map'
+    if exists(lmap_fp):
+        database_files['length.map'] = lmap_fp
 
     return database_files
 
@@ -78,10 +82,11 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     merge_inv = f'woltka_merge --base {output} '
     fcmds = []
     for r in ranks:
-        merges.append(" ".join([merge_inv,
-                                f'--name {r}',
-                                f'--glob "*.woltka-taxa/{r}.biom"',
-                                '&']))  # run all at once
+        cmd = [merge_inv, f'--name {r}', f'--glob "*.woltka-taxa/{r}.biom"']
+        if r == 'free' and 'length.map' in db_files:
+            cmd.append(f'--length_map {db_files["length.map"]}')
+        cmd.append('&')
+        merges.append(" ".join(cmd))
     if db_files['gene_coordinates'] is not None:
         merges.append(" ".join([merge_inv, '--name per-gene',
                                 '--glob "*.woltka-per-gene"',
@@ -140,7 +145,9 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              '\n'.join(merges),
              "wait",
              '\n'.join(fcmds),
-             f'cd {output}; tar -cvf alignment.tar *.sam.xz\n'
+             f'cd {output}; tar -cvf alignment.tar *.sam.xz; '
+             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
+             'coverages\n'
              'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time
@@ -166,7 +173,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
              f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)}'
+             f'--rank {",".join(ranks)} --outcov coverages/'
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:
@@ -247,13 +254,22 @@ def woltka(qclient, job_id, parameters, out_dir):
     """
     db_files = _process_database_files(parameters['Database'])
 
+    def _coverage_copy(dest):
+        fp_coverages = join(out_dir, 'coverages.tgz')
+        mkdir(dest)
+        dest = join(dest, 'coverages.tgz')
+        copy2(fp_coverages, dest)
+
+        return dest
+
     errors = []
     ainfo = []
     fp_biom = f'{out_dir}/free.biom'
     fp_alng = f'{out_dir}/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
         ainfo = [ArtifactInfo('Alignment Profile', 'BIOM', [
-            (fp_biom, 'biom'), (fp_alng, 'log')])]
+            (fp_biom, 'biom'), (fp_alng, 'log'),
+            (_coverage_copy(f'{out_dir}/alignment/'), 'plain_text')])]
     else:
         ainfo = []
         errors.append('Missing files from the "Alignment Profile"; please '
@@ -262,7 +278,8 @@ def woltka(qclient, job_id, parameters, out_dir):
     fp_biom = f'{out_dir}/none.biom'
     if exists(fp_biom):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
-            (fp_biom, 'biom')]))
+            (fp_biom, 'biom'),
+            (_coverage_copy(f'{out_dir}/none/'), 'plain_text')]))
     else:
         errors.append('Table none/per-genome was not created, please contact '
                       'qiita.help@gmail.com for more information')
@@ -271,7 +288,8 @@ def woltka(qclient, job_id, parameters, out_dir):
         fp_biom = f'{out_dir}/per-gene.biom'
         if exists(fp_biom):
             ainfo.append(ArtifactInfo('Per gene Predictions', 'BIOM', [
-                (fp_biom, 'biom')]))
+                (fp_biom, 'biom'),
+                (_coverage_copy(f'{out_dir}/per_gene/'), 'plain_text')]))
         else:
             errors.append('Table per-gene was not created, please contact '
                           'qiita.help@gmail.com for more information')
@@ -282,7 +300,8 @@ def woltka(qclient, job_id, parameters, out_dir):
             fp_biom = f'{out_dir}/ko.biom'
             if exists(fp_biom):
                 ainfo.append(ArtifactInfo('KEGG Ontology (KO)', 'BIOM', [
-                    (fp_biom, 'biom')]))
+                    (fp_biom, 'biom'),
+                    (_coverage_copy(f'{out_dir}/ko/'), 'plain_text')]))
             else:
                 errors.append('Table KEGG Ontology was not created, please '
                               'contact qiita.help@gmail.com for more '
@@ -292,7 +311,8 @@ def woltka(qclient, job_id, parameters, out_dir):
             fp_biom = f'{out_dir}/ec.biom'
             if exists(fp_biom):
                 ainfo.append(ArtifactInfo('KEGG Enzyme (EC)', 'BIOM', [
-                    (fp_biom, 'biom')]))
+                    (fp_biom, 'biom'),
+                    (_coverage_copy(f'{out_dir}/ec/'), 'plain_text')]))
             else:
                 errors.append('Table KEGG Enzyme was not created, please '
                               'contact qiita.help@gmail.com for more '
@@ -304,7 +324,10 @@ def woltka(qclient, job_id, parameters, out_dir):
             fp_biom = f'{out_dir}/pathway.biom'
             if exists(fp_biom):
                 ainfo.append(
-                    ArtifactInfo('KEGG Pathway', 'BIOM', [(fp_biom, 'biom')]))
+                    ArtifactInfo('KEGG Pathway', 'BIOM', [
+                        (fp_biom, 'biom'),
+                        (_coverage_copy(f'{out_dir}/pathway/'),
+                         'plain_text')]))
             else:
                 errors.append('Table KEGG Pathway was not created, please '
                               'contact qiita.help@gmail.com for more '

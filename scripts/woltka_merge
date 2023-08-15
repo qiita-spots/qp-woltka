@@ -5,6 +5,7 @@ import biom
 import glob as glob_
 import h5py
 import click
+from qp_woltka.util import merge_ranges, coverage_percentage
 
 
 @click.command()
@@ -12,7 +13,8 @@ import click
 @click.option('--glob', type=str, required=True)
 @click.option('--name', type=str, required=True)
 @click.option('--rename/--no-rename', type=bool, default=False)
-def merge(base, glob, name, rename):
+@click.option('--length_map', type=click.Path(exists=True), required=False)
+def merge(base, glob, name, rename, length_map):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
     chunk_size = 30
@@ -49,6 +51,16 @@ def merge(base, glob, name, rename):
 
     with h5py.File(f'{base}/{name}.biom', 'w') as out:
         full.to_hdf5(out, 'fast-merge')
+
+    if name == 'free' and length_map is not None:
+        coverages = glob_.glob('coverages/*.cov')
+        artifact_cov = f'{base}/artifact.cov'
+        with open(artifact_cov, 'w') as out:
+            out.write('\n'.join(merge_ranges(coverages)))
+
+        with open(f'{base}/coverage_percentage.txt', 'w') as out:
+            out.write('\n'.join(
+                coverage_percentage([artifact_cov], length_map)))
 
 
 if __name__ == '__main__':
