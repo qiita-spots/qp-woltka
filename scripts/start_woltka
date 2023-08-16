@@ -10,6 +10,7 @@
 import click
 from subprocess import run, PIPE
 from os.path import dirname
+import pandas as pd
 
 from qp_woltka import plugin
 from qp_woltka.woltka import woltka_to_array
@@ -37,6 +38,17 @@ def execute(url, job_id, out_dir):
         del parameters['input']
 
         files, prep = qclient.artifact_and_preparation_files(artifact_id)
+        # get sample-info-files
+        # Note: qclient.artifact_and_preparation_files actually uses the next
+        #       two lines to retrieve the info; thus, we are doing the same
+        #       operation twice but I don't think is an issue at the moment
+        artifact_info = qclient.get("/qiita_db/artifacts/%s/" % artifact_id)
+        response = qclient.get('/qiita_db/prep_template/%s/' %
+                               artifact_info['prep_information'][0])
+        sample_info = pd.read_csv(response['sample-file'], sep='\t',
+                                  dtype='str', na_values=[],
+                                  keep_default_na=False)
+        print(sample_info)
 
         directory = {dirname(ffs['filepath']) for _, fs in files.items()
                      for ffs in fs if ffs is not None}
