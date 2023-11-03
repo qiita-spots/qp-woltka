@@ -46,7 +46,7 @@ req_params = {
     'input': ('artifact', ['per_sample_FASTQ'])
 }
 opt_params = {
-    'Database': [f"choice: [{db_path}]", db_path]
+    'Database': [f'choice: ["{db_path}"]', db_path]
 }
 outputs = {
     'SynDNA hits': 'BIOM',

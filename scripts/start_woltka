@@ -12,7 +12,7 @@ from subprocess import run, PIPE
 from os.path import dirname
 
 from qp_woltka import plugin
-from qp_woltka.woltka import woltka_to_array
+from qp_woltka.woltka import woltka_to_array, woltka_syndna_to_array
 from qp_woltka.util import client_connect
 
 
@@ -36,32 +36,31 @@ def execute(url, job_id, out_dir):
             job_id, "Step 1 of 4: Collecting info and generating submission")
         artifact_id = parameters['input']
         del parameters['input']
+        files, prep = qclient.artifact_and_preparation_files(artifact_id)
+
+        directory = {dirname(ffs['filepath']) for _, fs in files.items()
+                     for ffs in fs if ffs is not None}
+        if len(directory) != 1:
+            msg = ('There is more than one input directory [%s]; please '
+                   'contact qiita.help@gmail.com' % str(directory))
+            return False, None, msg
+        else:
+            directory = directory.pop()
 
         if command.lower.startswith('woltka'):
-            files, prep = qclient.artifact_and_preparation_files(artifact_id)
-
-            directory = {dirname(ffs['filepath']) for _, fs in files.items()
-                         for ffs in fs if ffs is not None}
-            if len(directory) != 1:
-                msg = ('There is more than one input directory [%s]; please '
-                       'contact qiita.help@gmail.com' % str(directory))
-                return False, None, msg
-            else:
-                directory = directory.pop()
-
-            # Getting all the files from the database
             main_fp, merge_fp = woltka_to_array(
                 files, out_dir, parameters['Database'], prep, url, job_id)
-
-            # Submitting jobs and returning id
-            main_job = run(['sbatch', main_fp], stdout=PIPE)
-            main_job_id = main_job.stdout.decode('utf8').split()[-1]
-            merge_job = run(['sbatch', '-d', f'afterany:{main_job_id}',
-                             merge_fp], stdout=PIPE)
-            merge_job_id = merge_job.stdout.decode('utf8').split()[-1]
-            print(f'{main_job_id}, {merge_job_id}')
         else:
-            raise ValueError('not implemented')
+            main_fp, merge_fp = woltka_syndna_to_array(
+                files, out_dir, parameters['Database'], prep, url, job_id)
+
+        # Submitting jobs and returning id
+        main_job = run(['sbatch', main_fp], stdout=PIPE)
+        main_job_id = main_job.stdout.decode('utf8').split()[-1]
+        merge_job = run(['sbatch', '-d', f'afterany:{main_job_id}',
+                         merge_fp], stdout=PIPE)
+        merge_job_id = merge_job.stdout.decode('utf8').split()[-1]
+        print(f'{main_job_id}, {merge_job_id}')
 
         qclient.update_job_step(
             job_id, "Step 2 of 4: Aligning sequences")

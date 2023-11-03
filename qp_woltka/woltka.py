@@ -233,6 +233,12 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     return main_fp, merge_fp
 
 
+def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
+    """Creates files for submission of per sample bowtie2 and woltka_syndna
+    """
+    raise ValueError('SynDNA not implemented')
+
+
 def syndna_woltka(qclient, job_id, parameters, out_dir):
     """
     """
