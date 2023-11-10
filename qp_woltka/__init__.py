@@ -8,7 +8,7 @@
 
 from qiita_client import QiitaPlugin, QiitaCommand
 
-from .woltka import woltka, syndna_woltka
+from .woltka import woltka, woltka_syndna, calculate_cell_counts
 from qp_woltka.util import generate_woltka_dflt_params, get_dbs, plugin_details
 from os import environ
 
@@ -56,6 +56,21 @@ dflt_param_set = {
     'SynDNA': {'Database': db_path},
 }
 syndna_cmd = QiitaCommand(
-    'SynDNA Woltka v0.1', "Process SynDNA reads using woltka", syndna_woltka,
+    'SynDNA Woltka', "Process SynDNA reads using woltka", woltka_syndna,
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(syndna_cmd)
+
+# Cell counts
+req_params = {
+    'synDNA hits': ('artifact', ['BIOM']),
+    'Woltka per-genome': ('artifact', ['BIOM'])
+}
+opt_params = {}
+outputs = {
+    'Cell counts': 'BIOM'
+}
+dflt_param_set = {}
+calculate_cell_counts_cmd = QiitaCommand(
+    'Calculate Cell Counts', "Calculate cell counts per-genome",
+    calculate_cell_counts, req_params, opt_params, outputs, dflt_param_set)
+plugin.register_command(calculate_cell_counts_cmd)

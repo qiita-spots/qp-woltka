@@ -5,22 +5,30 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
-from os import environ, mkdir
+import re
+from os import environ, mkdir, listdir
 from os.path import join, basename, exists, dirname
 from glob import glob
 from shutil import copy2
+from math import ceil
+
+from qp_woltka.util import search_by_filename
 
 from qiita_client import ArtifactInfo
 
 # resources per job
 PPN = 8
-MEMORY = '90g'
-LARGE_MEMORY = '150g'
-WALLTIME = '40:00:00'
-MERGE_MEMORY = '140g'
-MERGE_WALLTIME = '30:00:00'
 MAX_RUNNING = 8
 TASKS_IN_SCRIPT = 10
+
+MEMORY = '90g'
+LARGE_MEMORY = '150g'
+MERGE_MEMORY = '140g'
+SYNDNA_MEMORY = '190g'
+
+WALLTIME = '40:00:00'
+MERGE_WALLTIME = '30:00:00'
+SYNDNA_WALLTIME = '8:00:00'
 
 
 def _process_database_files(database_fp):
@@ -233,18 +241,6 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     return main_fp, merge_fp
 
 
-def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
-    """Creates files for submission of per sample bowtie2 and woltka_syndna
-    """
-    raise ValueError('SynDNA not implemented')
-
-
-def syndna_woltka(qclient, job_id, parameters, out_dir):
-    """
-    """
-    raise ValueError('SynDNA not implemented')
-
-
 def woltka(qclient, job_id, parameters, out_dir):
     """Run Woltka with the given parameters
 
@@ -350,3 +346,191 @@ def woltka(qclient, job_id, parameters, out_dir):
     else:
 
         return True, ainfo, ""
+
+
+def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
+    """Creates files for submission of per sample bowtie2 and woltka_syndna
+    """
+    environment = environ["ENVIRONMENT"]
+    db_folder = dirname(database_bowtie2)
+    db_name = basename(database_bowtie2)
+
+    lookup = prep.set_index('run_prefix')['sample_name'].to_dict()
+    n_files = 1
+    for i, (k, (f, r)) in enumerate(files.items()):
+        if i >= n_files*TASKS_IN_SCRIPT:
+            n_files += 1
+
+        sname = search_by_filename(basename(f['filepath']), lookup)
+        line = f'fwd_{sname} {f["filepath"]}\n'
+        if r is not None:
+            line += f'rev_{sname} {r["filepath"]}\n'
+
+        with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
+            fh.write(line)
+
+    # Bowtie2 command structure based on
+    # https://github.com/BenLangmead/bowtie2/issues/311
+    bowtie2 = f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
+              '-q ${f} -S $PWD/sams/${sn}.sam ' +\
+              '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
+              '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
+              '--no-head --no-unal --un-gz $PWD/reads/${fn}'
+
+    # all the setup pieces
+    lines = ['#!/bin/bash',
+             '#SBATCH -p qiita',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name {name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {PPN}',
+             f'#SBATCH --time {SYNDNA_WALLTIME}',
+             f'#SBATCH --mem {SYNDNA_MEMORY}',
+             f'#SBATCH --output {output}/{name}_%a.log',
+             f'#SBATCH --error {output}/{name}_%a.err',
+             f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
+             f'cd {output}',
+             'mkdir -p reads sams',
+             f'{environment}',
+             'date',  # start time
+             'hostname',  # executing system
+             'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}',
+             f'dbbase={db_folder}',
+             f'dbname={db_name}',
+             f'output={output}',
+             'while read -r sn f;',
+             '  do',
+             '    fn=`basename $f`; ',
+             f'    {bowtie2}',
+             '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt',
+             'date']
+
+    # write out the script
+    main_fp = join(output, f'{name}.slurm')
+    with open(main_fp, 'w') as job:
+        job.write('\n'.join(lines))
+
+    memory = ceil(n_files * .8)
+    time = ceil(n_files * 15)
+    # creating finish job
+    lines = ['#!/bin/bash',
+             '#SBATCH -p qiita',
+             '#SBATCH --mail-user "qiita.help@gmail.com"',
+             f'#SBATCH --job-name finish-{name}',
+             '#SBATCH -N 1',
+             f'#SBATCH -n {PPN}',
+             f'#SBATCH --time {time}',  # this is in minutes
+             f'#SBATCH --mem {memory}g',
+             f'#SBATCH --output {output}/finish-{name}.log',
+             f'#SBATCH --error {output}/finish-{name}.err',
+             f'cd {output}',
+             f'{environment}',
+             'date',  # start time
+             'hostname',  # executing system
+             'echo $SLURM_JOBID',
+             "sruns=`grep 'overall alignment rate' *.err | wc -l`",
+             'sjobs=`ls sams/*.sam | wc -l`',
+             'if [[ $sruns -eq $sjobs ]]; then',
+             '  mkdir -p sams/final',
+             '  for f in `ls sams/fwd_*`;',
+             '    do',
+             '      fn=`basename $f`;',
+             '      lines=`head $f | wc -l`',
+             '      if [[ "$lines" != "0" ]]; then echo cp ${f} '
+             'sams/final/${fn:4} ; fi ;',
+             '  done | parallel -j {PPN}',
+             '  for f in `ls sams/rev_*`;',
+             '    do',
+             '      fn=`basename $f`;',
+             '      lines=`head $f | wc -l`',
+             '      if [[ "$lines" != "0" ]]; then echo "cat ${f} >> '
+             'sams/final/${fn:4}" ; fi ;',
+             '  done | parallel -j {PPN}',
+             '  woltka classify -i sams/final/ -o syndna.biom --no-demux',
+             '  for f in `ls sams/final/*.sam`;',
+             '    do',
+             '      echo "xz -1 -T1 $f";',
+             '  done | parallel -j {PPN}',
+             '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;',
+             'fi',
+             f'finish_woltka {url} {name} {output}',
+             'set -e',
+             "date"]
+
+    finish_fp = join(output, f'{name}.finish.slurm')
+    with open(finish_fp, 'w') as job:
+        job.write('\n'.join(lines))
+
+    return main_fp, finish_fp
+
+
+def woltka_syndna(qclient, job_id, parameters, out_dir):
+    """Run Woltka againts the SynDNA default
+
+    Parameters
+    ----------
+    qclient : tgp.qiita_client.QiitaClient
+        The Qiita server client
+    job_id : str
+        The job id
+    parameters : dict
+        The parameter values to run split libraries
+    out_dir : str
+        The path to the job's output directory
+
+    Returns
+    -------
+    bool, list, str
+        The results of the job
+    """
+    errors = []
+    ainfo = []
+    fp_biom = f'{out_dir}/syndna.biom'
+    fp_alng = f'{out_dir}/sams/final/alignment.tar'
+    if exists(fp_biom) and exists(fp_alng):
+        # ToDo:
+        # add call and creation of synDNA regression
+        # job_info = qclient.get_job_info(job_id)
+        # artifact_id = parameters['input']
+        # files, prep = qclient.artifact_and_preparation_files(artifact_id)
+        # print(files, prep)
+
+        ainfo = [ArtifactInfo('SynDNA hits', 'BIOM', [
+            (fp_biom, 'biom'), (fp_alng, 'log')])]
+    else:
+        ainfo = []
+        errors.append('Missing files from the "SynDNA hits"; please '
+                      'contact qiita.help@gmail.com for more information')
+
+    fp_seqs = f'{out_dir}/reads'
+    reads = []
+    regex_fwd = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]1).*')
+    regex_rev = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]2).*')
+    for f in listdir(fp_seqs):
+        fwd = regex_fwd.match(f)
+        rev = regex_rev.match(f)
+        if fwd == rev:
+            errors.append(f"Is this fwd or rev read? {basename(f)}; please "
+                          'contact qiita.help@gmail.com for more information')
+            # resetting ainfo
+            ainfo = []
+        elif fwd is not None:
+            reads.append((f'{fp_seqs}/{f}', 'raw_forward_seqs'))
+        else:
+            reads.append((f'{fp_seqs}/{f}', 'raw_reverse_seqs'))
+
+    if not errors:
+        ainfo.append(
+            ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads))
+
+    if errors:
+        return False, ainfo, '\n'.join(errors)
+    else:
+
+        return True, ainfo, ""
+
+
+def calculate_cell_counts(qclient, job_id, parameters, out_dir):
+    """
+    """
+    raise ValueError('Not implemented')

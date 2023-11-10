@@ -9,14 +9,15 @@
 from unittest import main
 from qiita_client.testing import PluginTestCase
 from qiita_client import ArtifactInfo
-from os import remove, environ
+from os import remove, environ, mkdir
 from os.path import exists, isdir, join, dirname, basename
 from shutil import rmtree, copyfile
 from tempfile import mkdtemp
 from json import dumps
 
 from qp_woltka import plugin
-from qp_woltka.woltka import woltka_to_array, woltka
+from qp_woltka.woltka import (
+    woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna)
 
 
 class WoltkaTests(PluginTestCase):
@@ -408,6 +409,140 @@ class WoltkaTests(PluginTestCase):
             files, prep = self.qclient.artifact_and_preparation_files(aid)
         self.assertEqual(str(error.exception), "Multiple run prefixes match "
                          "this fwd read: S22205_S104_L001_R1_001.fastq.gz")
+
+    def test_woltka_syndna_to_array(self):
+        # inserting new prep template
+        prep_info_dict = {
+            'SKB8.640193': {'run_prefix': 'S22205_S104'},
+            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+        pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
+
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        files, prep = self.qclient.artifact_and_preparation_files(aid)
+
+        url = 'this-is-my-url'
+        database = self.params['Database']
+        main_fp, finish_fp = woltka_syndna_to_array(
+            files, out_dir, database, prep, url, job_id)
+
+        self.assertEqual(join(out_dir, f'{job_id}.slurm'), main_fp)
+        self.assertEqual(join(out_dir, f'{job_id}.finish.slurm'), finish_fp)
+
+        with open(main_fp) as f:
+            main = f.readlines()
+        with open(finish_fp) as f:
+            finish = f.readlines()
+
+        exp_main = [
+            '#!/bin/bash\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name {job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 8\n',
+            '#SBATCH --time 8:00:00\n',
+            '#SBATCH --mem 190g\n',
+            f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
+            f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
+            '#SBATCH --array 1-1%8\n',
+            f'cd {out_dir}\n',
+            'mkdir -p reads sams\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'echo ${SLURM_JOBID} ${SLURM_ARRAY_TASK_ID}\n',
+            f'dbbase={dirname(database)}\n',
+            f'dbname={basename(database)}\n',
+            f'output={out_dir}\n',
+            'while read -r sn f;\n',
+            '  do\n',
+            '    fn=`basename $f`; \n',
+            f'    bowtie2 -p 8 -x {database} -q '
+            '${f} -S $PWD/sams/${sn}.sam --seed 42 --very-sensitive -k 16 '
+            '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" --score-min '
+            '"L,0,-0.05" --no-head --no-unal --un-gz $PWD/reads/${fn}\n',
+            '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt\n',
+            'date']
+        self.assertEqual(main, exp_main)
+
+        exp_finish = [
+            '#!/bin/bash\n',
+            '#SBATCH -p qiita\n',
+            '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            f'#SBATCH --job-name finish-{job_id}\n',
+            '#SBATCH -N 1\n',
+            '#SBATCH -n 8\n',
+            '#SBATCH --time 15\n',
+            '#SBATCH --mem 1g\n',
+            f'#SBATCH --output {out_dir}/finish-{job_id}.log\n',
+            f'#SBATCH --error {out_dir}/finish-{job_id}.err\n',
+            f'cd {out_dir}\n',
+            f'{self.environment}\n',
+            'date\n',
+            'hostname\n',
+            'echo $SLURM_JOBID\n',
+            "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
+            'sjobs=`ls sams/*.sam | wc -l`\n',
+            'if [[ $sruns -eq $sjobs ]]; then\n',
+            '  mkdir -p sams/final\n',
+            '  for f in `ls sams/fwd_*`;\n',
+            '    do\n',
+            '      fn=`basename $f`;\n',
+            '      lines=`head $f | wc -l`\n',
+            '      if [[ "$lines" != "0" ]]; then echo cp ${f} '
+            'sams/final/${fn:4} ; fi ;\n',
+            '  done | parallel -j {PPN}\n',
+            '  for f in `ls sams/rev_*`;\n',
+            '    do\n',
+            '      fn=`basename $f`;\n',
+            '      lines=`head $f | wc -l`\n',
+            '      if [[ "$lines" != "0" ]]; then echo "cat ${f} >> '
+            'sams/final/${fn:4}" ; fi ;\n',
+            '  done | parallel -j {PPN}\n',
+            '  woltka classify -i sams/final/ -o syndna.biom --no-demux\n',
+            '  for f in `ls sams/final/*.sam`;\n',
+            '    do\n',
+            '      echo "xz -1 -T1 $f";\n',
+            '  done | parallel -j {PPN}\n',
+            '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;\n',
+            'fi\n',
+            f'finish_woltka {url} {job_id} {out_dir}\n',
+            'set -e\n',
+            'date']
+        self.assertEqual(finish, exp_finish)
+
+        # now let's test that if finished correctly
+        sdir = 'qp_woltka/support_files/'
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/syndna.biom')
+        # we just need the file to exists so is fine to use the biom as tar
+        mkdir(f'{out_dir}/sams')
+        mkdir(f'{out_dir}/sams/final')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/sams/final/alignment.tar')
+        reads_fp = f'{out_dir}/reads/'
+        mkdir(reads_fp)
+        reads = []
+        for i in range(2):
+            for j in range(2):
+                ft = 'raw_reverse_seqs' if j else 'raw_forward_seqs'
+                iname = files[i][j]['filepath']
+                jname = f'{reads_fp}{basename(iname)}'
+                copyfile(iname, jname)
+                reads.append((jname, ft))
+
+        success, ainfo, msg = woltka_syndna(
+            self.qclient, job_id, self.params, out_dir)
+
+        self.assertEqual("", msg)
+        self.assertTrue(success)
+
+        exp = [
+            ArtifactInfo('SynDNA hits', 'BIOM',
+                         [(f'{out_dir}/syndna.biom', 'biom'),
+                          (f'{out_dir}/sams/final/alignment.tar', 'log')]),
+            ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads)]
+        self.assertCountEqual(ainfo, exp)
 
 
 if __name__ == '__main__':
