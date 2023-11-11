@@ -47,7 +47,7 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        if command.lower.startswith('woltka'):
+        if command.lower().startswith('woltka'):
             main_fp, merge_fp = woltka_to_array(
                 files, out_dir, parameters['Database'], prep, url, job_id)
         else:
