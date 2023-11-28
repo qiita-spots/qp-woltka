@@ -76,10 +76,12 @@ jobs:
         shell: bash -l {0}
         run: |
           conda config --add channels bioconda
-          # bowtie2==2.5.0 is what's installed in main qiita so making sure we keep
-          # using the same version for consistency
-          conda create --yes -n qp-woltka-0.1.4 python=3.9 biom-format bowtie2==2.5.0
+          conda create --yes -n qp-woltka-0.1.4 python=3.9 biom-format bowtie2
           conda activate qp-woltka-0.1.4
+          # bowtie2==2.5.0 is what's installed in main qiita so making sure we keep
+          # using the same version for consistency; note that we will need to force
+          conda install --yes -c bioconda bowtie2==2.5.0
+
 
           pip --quiet install .
           pip --quiet install -U pip pip nose flake8
