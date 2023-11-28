@@ -78,6 +78,10 @@ jobs:
           conda config --add channels bioconda
           conda create --yes -n qp-woltka-0.1.4 python=3.9 biom-format bowtie2
           conda activate qp-woltka-0.1.4
+          # bowtie2==2.5.0 is what's installed in main qiita so making sure we keep
+          # using the same version for consistency; note that we will need to force
+          conda install --yes -c bioconda bowtie2==2.5.0
+
 
           pip --quiet install .
           pip --quiet install -U pip pip nose flake8
@@ -85,18 +89,19 @@ jobs:
 
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_rootca.crt
           export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
-          export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/
+          export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/
+          export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA
 
           for file in $(ls $QC_WOLTKA_DB_DP); do tar xvzf $QC_WOLTKA_DB_DP$file -C $QC_WOLTKA_DB_DP; done
 
           woltka_version=`woltka --version`
           bowtie2_version=`bowtie2 --version`
           if [[ $woltka_version != *"0.1.4"* ]]; then echo "wrong woltka version", $woltka_version; exit 1; fi
-          if [[ $bowtie2_version != *"2.5.1"* ]]; then echo "wrong bowtie2 version", $bowtie2_version; exit 1; fi
+          if [[ $bowtie2_version != *"2.5.0"* ]]; then echo "wrong bowtie2 version", $bowtie2_version; exit 1; fi
 
-          export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
+          export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/; export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA"
 
-          configure_woltka --env-script 'source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/; export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"' --server-cert $QIITA_SERVER_CERT
+          configure_woltka --env-script 'source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/; export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA; export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/; export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA"' --server-cert $QIITA_SERVER_CERT
 
           echo "Available Qiita plugins"
           ls ~/.qiita_plugins/
@@ -139,8 +144,9 @@ jobs:
           conda activate qp-woltka-0.1.4
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_rootca.crt
           export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg
-          export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/"
-          export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/
+          export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka-0.1.4; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/; export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA"
+          export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/
+          export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA
           export PYTHONWARNINGS="ignore:Certificate for localhost has no \`subjectAltName\`"
 
           nosetests --with-doctest --with-coverage -v --cover-package=qp_woltka

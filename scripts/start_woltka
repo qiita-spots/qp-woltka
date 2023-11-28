@@ -12,7 +12,7 @@ from subprocess import run, PIPE
 from os.path import dirname
 
 from qp_woltka import plugin
-from qp_woltka.woltka import woltka_to_array
+from qp_woltka.woltka import woltka_to_array, woltka_syndna_to_array
 from qp_woltka.util import client_connect
 
 
@@ -29,13 +29,13 @@ def execute(url, job_id, out_dir):
     else:
         qclient = client_connect(url)
         job_info = qclient.get_job_info(job_id)
+        command = job_info['command']
         parameters = job_info['parameters']
 
         qclient.update_job_step(
             job_id, "Step 1 of 4: Collecting info and generating submission")
         artifact_id = parameters['input']
         del parameters['input']
-
         files, prep = qclient.artifact_and_preparation_files(artifact_id)
 
         directory = {dirname(ffs['filepath']) for _, fs in files.items()
@@ -47,9 +47,20 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        # Getting all the files from the database
-        main_fp, merge_fp = woltka_to_array(
-            files, out_dir, parameters['Database'], prep, url, job_id)
+        # these were defined in qp_woltka/__init.py__ while defining the
+        # available commands for this plugin
+        valid_commands = [
+            'Woltka v0.1.4', 'SynDNA Woltka', 'Calculate Cell Counts']
+
+        if command not in valid_commands:
+            raise ValueError(f'Not a valid command: "{command}"')
+
+        if command == 'Woltka v0.1.4':
+            main_fp, merge_fp = woltka_to_array(
+                files, out_dir, parameters['Database'], prep, url, job_id)
+        else:
+            main_fp, merge_fp = woltka_syndna_to_array(
+                files, out_dir, parameters['Database'], prep, url, job_id)
 
         # Submitting jobs and returning id
         main_job = run(['sbatch', main_fp], stdout=PIPE)

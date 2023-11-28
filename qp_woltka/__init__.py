@@ -8,13 +8,14 @@
 
 from qiita_client import QiitaPlugin, QiitaCommand
 
-from .woltka import woltka
+from .woltka import woltka, woltka_syndna, calculate_cell_counts
 from qp_woltka.util import generate_woltka_dflt_params, get_dbs, plugin_details
 from os import environ
 
 # Initialize the plugin
 plugin = QiitaPlugin(**plugin_details)
 
+# Main woltka command
 db_list = list(get_dbs(environ["QC_WOLTKA_DB_DP"]).values())
 req_params = {'input': ('artifact', ['per_sample_FASTQ'])}
 opt_params = {
@@ -34,9 +35,42 @@ outputs = {
     'KEGG Pathway': 'BIOM',
     }
 dflt_param_set = generate_woltka_dflt_params()
-
 woltka_cmd = QiitaCommand(
     'Woltka v0.1.4', "Functional and Taxonomic Predictions", woltka,
     req_params, opt_params, outputs, dflt_param_set)
-
 plugin.register_command(woltka_cmd)
+
+# abs quant
+db_path = environ["QC_WOLTKA_SYNDNA_DB_DP"]
+req_params = {
+    'input': ('artifact', ['per_sample_FASTQ'])
+}
+opt_params = {
+    'Database': [f'choice: ["{db_path}"]', db_path]
+}
+outputs = {
+    'SynDNA hits': 'BIOM',
+    'reads without SynDNA': 'per_sample_FASTQ',
+}
+dflt_param_set = {
+    'SynDNA': {'Database': db_path},
+}
+syndna_cmd = QiitaCommand(
+    'SynDNA Woltka', "Process SynDNA reads using woltka", woltka_syndna,
+    req_params, opt_params, outputs, dflt_param_set)
+plugin.register_command(syndna_cmd)
+
+# Cell counts
+req_params = {
+    'synDNA hits': ('artifact', ['BIOM']),
+    'Woltka per-genome': ('artifact', ['BIOM'])
+}
+opt_params = {}
+outputs = {
+    'Cell counts': 'BIOM'
+}
+dflt_param_set = {}
+calculate_cell_counts_cmd = QiitaCommand(
+    'Calculate Cell Counts', "Calculate cell counts per-genome",
+    calculate_cell_counts, req_params, opt_params, outputs, dflt_param_set)
+plugin.register_command(calculate_cell_counts_cmd)
