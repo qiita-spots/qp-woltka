@@ -47,7 +47,15 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        if command.lower().startswith('woltka'):
+        # these were defined in qp_woltka/__init.py__ while defining the
+        # available commands for this plugin
+        valid_commands = [
+            'Woltka v0.1.4', 'SynDNA Woltka', 'Calculate Cell Counts']
+
+        if command not in valid_commands:
+            raise ValueError(f'Not a valid command: "{command}"')
+
+        if command == 'Woltka v0.1.4':
             main_fp, merge_fp = woltka_to_array(
                 files, out_dir, parameters['Database'], prep, url, job_id)
         else:
