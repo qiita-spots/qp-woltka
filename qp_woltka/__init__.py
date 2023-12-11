@@ -66,11 +66,19 @@ req_params = {
     'synDNA hits': ('artifact', ['BIOM']),
     'Woltka per-genome': ('artifact', ['BIOM'])
 }
-opt_params = {}
+opt_params = {
+    'read_length': ('integer', '150'),
+    'min_rsquared': ('float', '0.8'),
+}
 outputs = {
     'Cell counts': 'BIOM'
 }
-dflt_param_set = {}
+dflt_param_set = {
+    '150bp @ R^2: 0.8': {
+        'read_length': 150,
+        'min_rsquared': 0.8
+    }
+}
 calculate_cell_counts_cmd = QiitaCommand(
     'Calculate Cell Counts', "Calculate cell counts per-genome",
     calculate_cell_counts, req_params, opt_params, outputs, dflt_param_set)

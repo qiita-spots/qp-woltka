@@ -415,8 +415,14 @@ class WoltkaTests(PluginTestCase):
     def test_woltka_syndna_to_array(self):
         # inserting new prep template
         prep_info_dict = {
-            'SKB8.640193': {'run_prefix': 'S22205_S104'},
-            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+            'SKB8.640193': {
+                'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120,
+                'sample_id': 'SKB8.640193'},
+            'SKD8.640184': {
+                'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120,
+                'sample_id': 'SKD8.640184'}}
         pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
 
         out_dir = mkdtemp()
@@ -534,8 +540,10 @@ class WoltkaTests(PluginTestCase):
                 copyfile(iname, jname)
                 reads.append((jname, ft))
 
+        params = self.params.copy()
+        params['min_sample_counts'] = 1
         success, ainfo, msg = woltka_syndna(
-            self.qclient, job_id, self.params, out_dir)
+            self.qclient, job_id, params, out_dir)
 
         self.assertEqual("", msg)
         self.assertTrue(success)

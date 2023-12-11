@@ -548,6 +548,31 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
 
 
 def calculate_cell_counts(qclient, job_id, parameters, out_dir):
-    """
+    """Run calc_ogu_cell_counts_per_g_of_sample_for_qiita
+
+    Parameters
+    ----------
+    qclient : tgp.qiita_client.QiitaClient
+        The Qiita server client
+    job_id : str
+        The job id
+    parameters : dict
+        The parameter values to wolka syndna
+    out_dir : str
+        The path to the job's output directory
+
+    Returns
+    -------
+    bool, list, str
+        The results of the job
     """
     raise ValueError('Not implemented')
+    # sample_info_df: pd.DataFrame,
+    # prep_info_df: pd.DataFrame,
+    # linregress_by_sample_id_fp: str,
+    # ogu_counts_per_sample_biom: biom.Table,
+    # ogu_lengths_fp: str,
+    # read_length: int = DEFAULT_READ_LENGTH,
+    # min_coverage: float = DEFAULT_MIN_COVERAGE,
+    # min_rsquared: float = DEFAULT_MIN_RSQUARED) \
+    # -> dict[str, str | biom.Table]:
