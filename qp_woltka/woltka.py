@@ -11,6 +11,9 @@ from os.path import join, basename, exists, dirname
 from glob import glob
 from shutil import copy2
 from math import ceil
+from biom import load_table
+import pandas as pd
+from src.fit_syndna_models import fit_linear_regression_models_for_qiita
 
 from qp_woltka.util import search_by_filename
 
@@ -356,6 +359,10 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
 
+    # storing the prep so we can use later
+    preparation_information = join(output, 'prep_info.tsv')
+    prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
+
     lookup = prep.set_index('run_prefix')['sample_name'].to_dict()
     n_files = 1
     for i, (k, (f, r)) in enumerate(files.items()):
@@ -476,7 +483,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     job_id : str
         The job id
     parameters : dict
-        The parameter values to run split libraries
+        The parameter values to wolka syndna
     out_dir : str
         The path to the job's output directory
 
@@ -490,15 +497,23 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     fp_biom = f'{out_dir}/syndna.biom'
     fp_alng = f'{out_dir}/sams/final/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
-        # ToDo:
-        # add call and creation of synDNA regression
-        # job_info = qclient.get_job_info(job_id)
-        # artifact_id = parameters['input']
-        # files, prep = qclient.artifact_and_preparation_files(artifact_id)
-        # print(files, prep)
-
+        # if we got to this point a preparation file should exist in
+        # the output folder
+        prep = pd.read_csv(
+            f'{out_dir}/prep_info.tsv', index_col='sample_name', sep='\t')
+        output = fit_linear_regression_models_for_qiita(
+            prep, load_table(fp_biom), parameters['min_sample_counts'])
+        # saving results to disk
+        lin_regress_results_fp = f'{out_dir}/lin_regress_results.json'
+        fit_syndna_models_log_fp = f'{out_dir}/fit_syndna_models_log.txt'
+        with open(lin_regress_results_fp, 'w') as fp:
+            fp.write(output['LIN_REGRESS_RESULT_KEY'])
+        with open(fit_syndna_models_log_fp, 'w') as fp:
+            fp.write(output['FIT_SYNDNA_MODELS_LOG_KEY'])
         ainfo = [ArtifactInfo('SynDNA hits', 'BIOM', [
-            (fp_biom, 'biom'), (fp_alng, 'log')])]
+            (fp_biom, 'biom'), (fp_alng, 'log'),
+            (lin_regress_results_fp, 'log'),
+            (fit_syndna_models_log_fp, 'log')])]
     else:
         ainfo = []
         errors.append('Missing files from the "SynDNA hits"; please '

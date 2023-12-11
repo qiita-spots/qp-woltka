@@ -46,14 +46,15 @@ req_params = {
     'input': ('artifact', ['per_sample_FASTQ'])
 }
 opt_params = {
-    'Database': [f'choice: ["{db_path}"]', db_path]
+    'Database': [f'choice: ["{db_path}"]', db_path],
+    'min_sample_counts': ('integer', '1')
 }
 outputs = {
     'SynDNA hits': 'BIOM',
     'reads without SynDNA': 'per_sample_FASTQ',
 }
 dflt_param_set = {
-    'SynDNA': {'Database': db_path},
+    'SynDNA': {'Database': db_path, 'min_sample_counts': 1},
 }
 syndna_cmd = QiitaCommand(
     'SynDNA Woltka', "Process SynDNA reads using woltka", woltka_syndna,
