@@ -140,7 +140,8 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
+            'sed \'s/$/\t*\t*/\' | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',
@@ -269,7 +270,8 @@ class WoltkaTests(PluginTestCase):
             'mux ${files} | bowtie2 -p 8 -x '
             f'{database} -q - --seed 42 '
             '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | demux ${output} '
+            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
+            'sed \'s/$/\t*\t*/\' | demux ${output} '
             f'{prep_file} | sort | uniq > '
             'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
             '# for each one of our input files, form woltka commands, \n',
@@ -504,7 +506,8 @@ class WoltkaTests(PluginTestCase):
             '  woltka classify -i sams/final/ -o syndna.biom --no-demux\n',
             '  for f in `ls sams/final/*.sam`;\n',
             '    do\n',
-            '      echo "xz -1 -T1 $f";\n',
+            '      echo "cat ${f} | cut -f1-9 | sed \'s/$/\t*\t*/\' | '
+            'xz -1 -T1 > ${f}.xz; rm ${f}"\n',
             '  done | parallel -j 8\n',
             '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;\n',
             'fi\n',
