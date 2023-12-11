@@ -85,6 +85,7 @@ jobs:
 
           pip --quiet install .
           pip --quiet install -U pip pip nose flake8
+          pip --quiet install yaml
           pip --quiet install https://github.com/qiita-spots/qiita_client/archive/master.zip
 
           export QIITA_SERVER_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_rootca.crt
