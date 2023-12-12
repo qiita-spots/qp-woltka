@@ -17,7 +17,8 @@ from json import dumps
 
 from qp_woltka import plugin
 from qp_woltka.woltka import (
-    woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna)
+    woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna,
+    calculate_cell_counts)
 
 
 class WoltkaTests(PluginTestCase):
@@ -554,6 +555,21 @@ class WoltkaTests(PluginTestCase):
                           (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
             ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads)]
         self.assertCountEqual(ainfo, exp)
+
+    def test_calculate_cell_counts(self):
+        params = {'synDNA hits': 5, 'Woltka per-genome': 6,
+                  'min_coverage': 1, 'read_length': 150,
+                  'min_rsquared': 0.8}
+        job_id = 'my-job-id'
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # this should fail cause we don't have valid data
+        success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "No logs found, are you sure you selected the "
+                         "correct artifact for 'synDNA hits'?")
 
 
 if __name__ == '__main__':

@@ -67,6 +67,7 @@ req_params = {
     'Woltka per-genome': ('artifact', ['BIOM'])
 }
 opt_params = {
+    'min_coverage': ('integer', '1'),
     'read_length': ('integer', '150'),
     'min_rsquared': ('float', '0.8'),
 }
@@ -74,7 +75,8 @@ outputs = {
     'Cell counts': 'BIOM'
 }
 dflt_param_set = {
-    '150bp @ R^2: 0.8': {
+    '150bp @ coverage:1, R^2: 0.8': {
+        'min_coverage': 1,
         'read_length': 150,
         'min_rsquared': 0.8
     }

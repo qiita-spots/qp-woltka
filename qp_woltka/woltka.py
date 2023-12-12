@@ -566,13 +566,29 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
     bool, list, str
         The results of the job
     """
-    raise ValueError('Not implemented')
-    # sample_info_df: pd.DataFrame,
-    # prep_info_df: pd.DataFrame,
-    # linregress_by_sample_id_fp: str,
-    # ogu_counts_per_sample_biom: biom.Table,
-    # ogu_lengths_fp: str,
-    # read_length: int = DEFAULT_READ_LENGTH,
-    # min_coverage: float = DEFAULT_MIN_COVERAGE,
-    # min_rsquared: float = DEFAULT_MIN_RSQUARED) \
-    # -> dict[str, str | biom.Table]:
+    # let's get the syndna_id and prep in a single go
+    syndna_id = parameters['synDNA hits']
+    syndna_files, prep = qclient.artifact_and_preparation_files(syndna_id)
+    if 'log' not in syndna_files:
+        msg = ("No logs found, are you sure you selected the correct "
+               "artifact for 'synDNA hits'?")
+        return False, None, msg
+
+    # for per_genome_id let's do it separately so we can also ge the
+    # sample information
+    per_genome_id = parameters['Woltka per-genome']
+    ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
+    # per_genome_files = {k: [vv['filepath'] for vv in v]
+    #                     for k, v in ainfo['files'].items()}
+    sample_info = qclient.get(
+        '/qiita_db/prep_template/%s/data/?sample_information=true'
+        % ainfo['prep_information'][0])
+    sample_info = pd.DataFrame.from_dict(sample_info['data'], orient='index')
+
+    # output = calculate_cell_counts(prep, sample_info,
+    #       ???lin_regress_by_sample_id.json???,
+    #       ???ogu_counts_per_sample_biom???, ???ogu_lengths_fp???,
+    #       parameters['read_length'], parameters['min_rsquared'],
+    #       parameters['min_rsquared'])
+
+    return None, None, None
