@@ -500,16 +500,16 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
         # if we got to this point a preparation file should exist in
         # the output folder
         prep = pd.read_csv(
-            f'{out_dir}/prep_info.tsv', index_col='sample_name', sep='\t')
+            f'{out_dir}/prep_info.tsv', index_col=None, sep='\t')
         output = fit_linear_regression_models_for_qiita(
             prep, load_table(fp_biom), parameters['min_sample_counts'])
         # saving results to disk
-        lin_regress_results_fp = f'{out_dir}/lin_regress_results.json'
+        lin_regress_results_fp = f'{out_dir}/lin_regress_by_sample_id.json'
         fit_syndna_models_log_fp = f'{out_dir}/fit_syndna_models_log.txt'
         with open(lin_regress_results_fp, 'w') as fp:
-            fp.write(output['LIN_REGRESS_RESULT_KEY'])
+            fp.write(output['lin_regress_by_sample_id'])
         with open(fit_syndna_models_log_fp, 'w') as fp:
-            fp.write(output['FIT_SYNDNA_MODELS_LOG_KEY'])
+            fp.write(output['fit_syndna_models_log'])
         ainfo = [ArtifactInfo('SynDNA hits', 'BIOM', [
             (fp_biom, 'biom'), (fp_alng, 'log'),
             (lin_regress_results_fp, 'log'),

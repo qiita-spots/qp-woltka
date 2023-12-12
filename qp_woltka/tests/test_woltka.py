@@ -417,12 +417,10 @@ class WoltkaTests(PluginTestCase):
         prep_info_dict = {
             'SKB8.640193': {
                 'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
-                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120,
-                'sample_id': 'SKB8.640193'},
+                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120},
             'SKD8.640184': {
                 'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
-                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120,
-                'sample_id': 'SKD8.640184'}}
+                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120}}
         pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
 
         out_dir = mkdtemp()
@@ -524,7 +522,7 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/syndna.biom')
+        copyfile(f'{sdir}/syndna.biom', f'{out_dir}/syndna.biom')
         # we just need the file to exists so is fine to use the biom as tar
         mkdir(f'{out_dir}/sams')
         mkdir(f'{out_dir}/sams/final')
@@ -551,7 +549,9 @@ class WoltkaTests(PluginTestCase):
         exp = [
             ArtifactInfo('SynDNA hits', 'BIOM',
                          [(f'{out_dir}/syndna.biom', 'biom'),
-                          (f'{out_dir}/sams/final/alignment.tar', 'log')]),
+                          (f'{out_dir}/sams/final/alignment.tar', 'log'),
+                          (f'{out_dir}/lin_regress_by_sample_id.json', 'log'),
+                          (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
             ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads)]
         self.assertCountEqual(ainfo, exp)
 
