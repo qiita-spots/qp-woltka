@@ -12,8 +12,10 @@ from glob import glob
 from shutil import copy2
 from math import ceil
 from biom import load_table
+from biom.util import biom_open
 import pandas as pd
-from src.fit_syndna_models import fit_linear_regression_models_for_qiita
+from pysyndna import fit_linear_regression_models_for_qiita
+from pysyndna import calc_ogu_cell_counts_per_g_of_sample_for_qiita
 
 from qp_woltka.util import search_by_filename
 
@@ -504,7 +506,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
         output = fit_linear_regression_models_for_qiita(
             prep, load_table(fp_biom), parameters['min_sample_counts'])
         # saving results to disk
-        lin_regress_results_fp = f'{out_dir}/lin_regress_by_sample_id.json'
+        lin_regress_results_fp = f'{out_dir}/lin_regress_by_sample_id.yaml'
         fit_syndna_models_log_fp = f'{out_dir}/fit_syndna_models_log.txt'
         with open(lin_regress_results_fp, 'w') as fp:
             fp.write(output['lin_regress_by_sample_id'])
@@ -566,29 +568,66 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
     bool, list, str
         The results of the job
     """
+    error = ''
     # let's get the syndna_id and prep in a single go
     syndna_id = parameters['synDNA hits']
     syndna_files, prep = qclient.artifact_and_preparation_files(syndna_id)
-    if 'log' not in syndna_files:
-        msg = ("No logs found, are you sure you selected the correct "
-               "artifact for 'synDNA hits'?")
-        return False, None, msg
+    if 'log' not in syndna_files.keys():
+        error = ("No logs found, are you sure you selected the correct "
+                 "artifact for 'synDNA hits'?")
+    else:
 
-    # for per_genome_id let's do it separately so we can also ge the
-    # sample information
-    per_genome_id = parameters['Woltka per-genome']
-    ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
-    # per_genome_files = {k: [vv['filepath'] for vv in v]
-    #                     for k, v in ainfo['files'].items()}
-    sample_info = qclient.get(
-        '/qiita_db/prep_template/%s/data/?sample_information=true'
-        % ainfo['prep_information'][0])
-    sample_info = pd.DataFrame.from_dict(sample_info['data'], orient='index')
+        lin_regress_by_sample_id_fp = [f for f in syndna_files['log']
+                                       if 'lin_regress_by_sample_id' in f]
+        if not lin_regress_by_sample_id_fp:
+            error = ("No 'lin_regress_by_sample_id' log found, are you sure "
+                     " you selected the correct artifact for 'synDNA hits'?")
+        else:
+            lin_regress_by_sample_id_fp = lin_regress_by_sample_id_fp[0]
 
-    # output = calculate_cell_counts(prep, sample_info,
-    #       ???lin_regress_by_sample_id.json???,
-    #       ???ogu_counts_per_sample_biom???, ???ogu_lengths_fp???,
-    #       parameters['read_length'], parameters['min_rsquared'],
-    #       parameters['min_rsquared'])
+            # for per_genome_id let's do it separately so we can also ge the
+            # sample information
+            per_genome_id = parameters['Woltka per-genome']
+            ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
+            aparams = ainfo['processing_parameters']
+            ogu_fp = ainfo['files']['biom'][0]['filepath']
 
-    return None, None, None
+            if 'Database' not in aparams or not ogu_fp.endswith('none.biom'):
+                error = ("The selected 'Woltka per-genome' artifact doesn't "
+                         "look like one, did you select the correct file?")
+            else:
+                ogu_counts_per_sample = load_table(ogu_fp)
+
+                db_files = _process_database_files(aparams['Database'])
+                ogu_lengths_fp = db_files["length.map"]
+
+                sample_info = qclient.get(
+                    '/qiita_db/prep_template/%s/data/?sample_information=true'
+                    % ainfo['prep_information'][0])
+                sample_info = pd.DataFrame.from_dict(
+                    sample_info['data'], orient='index')
+                sample_info.reset_index(names='sample_name', inplace=True)
+
+    if error:
+        return False, None, error
+
+    try:
+        output = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            sample_info, prep, lin_regress_by_sample_id_fp,
+            ogu_counts_per_sample, ogu_lengths_fp,
+            parameters['read_length'], parameters['min_rsquared'],
+            parameters['min_rsquared'])
+    except Exception as e:
+        return False, None, str(e)
+
+    log_fp = f'{out_dir}/cell_counts.log'
+    with open(log_fp, 'w') as f:
+        f.write(output['calc_cell_counts_log'])
+    biom_fp = f'{out_dir}/cell_counts.biom'
+    with biom_open(biom_fp, 'w') as f:
+        output['cell_count_biom'].to_hdf5(f, f"Cell Counts - {job_id}")
+    ainfo = [
+        ArtifactInfo(
+            'Cell counts', 'BIOM', [(biom_fp, 'biom'), (log_fp, 'log')])]
+
+    return True, ainfo, ""

@@ -75,7 +75,7 @@ outputs = {
     'Cell counts': 'BIOM'
 }
 dflt_param_set = {
-    '150bp @ coverage:1, R^2: 0.8': {
+    '150bp @ min_coverage:1 R^2:0.8': {
         'min_coverage': 1,
         'read_length': 150,
         'min_rsquared': 0.8

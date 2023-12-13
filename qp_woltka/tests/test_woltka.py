@@ -551,7 +551,7 @@ class WoltkaTests(PluginTestCase):
             ArtifactInfo('SynDNA hits', 'BIOM',
                          [(f'{out_dir}/syndna.biom', 'biom'),
                           (f'{out_dir}/sams/final/alignment.tar', 'log'),
-                          (f'{out_dir}/lin_regress_by_sample_id.json', 'log'),
+                          (f'{out_dir}/lin_regress_by_sample_id.yaml', 'log'),
                           (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
             ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads)]
         self.assertCountEqual(ainfo, exp)
@@ -570,6 +570,48 @@ class WoltkaTests(PluginTestCase):
         self.assertFalse(success)
         self.assertEqual(msg, "No logs found, are you sure you selected the "
                          "correct artifact for 'synDNA hits'?")
+
+        # this should fail too because but now we are getting deeper into
+        # the validation
+        prep_info_dict = {
+            'SKB8.640193': {
+                'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120,
+                'minipico_dna_concentration_ng_ul': 10, 'vol_elute_ul': 5},
+            'SKD8.640184': {
+                'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120,
+                'minipico_dna_concentration_ng_ul': 11, 'vol_elute_ul': 6}}
+        data = {'prep_info': dumps(prep_info_dict),
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        sdir = 'qp_woltka/support_files/'
+        fp_to_cp = [
+            'fit_syndna_models_log.txt', 'lin_regress_by_sample_id.yaml',
+            'syndna.biom']
+        for fp in fp_to_cp:
+            copyfile(f'{sdir}/{fp}', f'{out_dir}/{fp}')
+        data = {
+            'filepaths': dumps([
+                (f'{out_dir}/syndna.biom', 'biom'),
+                (f'{out_dir}/lin_regress_by_sample_id.yaml', 'log'),
+                (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
+            'type': "BIOM",
+            'name': "SynDNA Hits - Test",
+            'prep': pid}
+        params['synDNA hits'] = self.qclient.post(
+            '/apitest/artifact/', data=data)['artifact']
+
+        success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
+                         "doesn't look like one, did you select the correct "
+                         "file?")
+
+        # Finally, adding a full test is close to impossible - too many steps.
 
 
 if __name__ == '__main__':
