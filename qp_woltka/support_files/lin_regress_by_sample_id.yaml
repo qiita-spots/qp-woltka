@@ -1,0 +1,14 @@
+1.SKB8.640193:
+  intercept: 9.755082803643
+  intercept_stderr: 3.058237204847
+  pvalue: 0.01197011187
+  rvalue: -0.78628520649
+  slope: -3.509994537266
+  stderr: 1.04248546695
+1.SKD8.640184:
+  intercept: 8.352404328098
+  intercept_stderr: 2.313971537139
+  pvalue: 0.005567676743
+  rvalue: -0.798913662914
+  slope: -2.991479594754
+  stderr: 0.79622836446

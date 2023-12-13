@@ -17,7 +17,8 @@ from json import dumps
 
 from qp_woltka import plugin
 from qp_woltka.woltka import (
-    woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna)
+    woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna,
+    calculate_cell_counts)
 
 
 class WoltkaTests(PluginTestCase):
@@ -415,8 +416,12 @@ class WoltkaTests(PluginTestCase):
     def test_woltka_syndna_to_array(self):
         # inserting new prep template
         prep_info_dict = {
-            'SKB8.640193': {'run_prefix': 'S22205_S104'},
-            'SKD8.640184': {'run_prefix': 'S22282_S102'}}
+            'SKB8.640193': {
+                'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120},
+            'SKD8.640184': {
+                'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120}}
         pid, aid, job_id = self._helper_woltka_bowtie(prep_info_dict)
 
         out_dir = mkdtemp()
@@ -518,7 +523,7 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/syndna.biom')
+        copyfile(f'{sdir}/syndna.biom', f'{out_dir}/syndna.biom')
         # we just need the file to exists so is fine to use the biom as tar
         mkdir(f'{out_dir}/sams')
         mkdir(f'{out_dir}/sams/final')
@@ -534,8 +539,10 @@ class WoltkaTests(PluginTestCase):
                 copyfile(iname, jname)
                 reads.append((jname, ft))
 
+        params = self.params.copy()
+        params['min_sample_counts'] = 1
         success, ainfo, msg = woltka_syndna(
-            self.qclient, job_id, self.params, out_dir)
+            self.qclient, job_id, params, out_dir)
 
         self.assertEqual("", msg)
         self.assertTrue(success)
@@ -543,9 +550,68 @@ class WoltkaTests(PluginTestCase):
         exp = [
             ArtifactInfo('SynDNA hits', 'BIOM',
                          [(f'{out_dir}/syndna.biom', 'biom'),
-                          (f'{out_dir}/sams/final/alignment.tar', 'log')]),
+                          (f'{out_dir}/sams/final/alignment.tar', 'log'),
+                          (f'{out_dir}/lin_regress_by_sample_id.yaml', 'log'),
+                          (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
             ArtifactInfo('reads without SynDNA', 'per_sample_FASTQ', reads)]
         self.assertCountEqual(ainfo, exp)
+
+    def test_calculate_cell_counts(self):
+        params = {'synDNA hits': 5, 'Woltka per-genome': 6,
+                  'min_coverage': 1, 'read_length': 150,
+                  'min_rsquared': 0.8}
+        job_id = 'my-job-id'
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # this should fail cause we don't have valid data
+        success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "No logs found, are you sure you selected the "
+                         "correct artifact for 'synDNA hits'?")
+
+        # this should fail too because but now we are getting deeper into
+        # the validation
+        prep_info_dict = {
+            'SKB8.640193': {
+                'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120,
+                'minipico_dna_concentration_ng_ul': 10, 'vol_elute_ul': 5},
+            'SKD8.640184': {
+                'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
+                'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120,
+                'minipico_dna_concentration_ng_ul': 11, 'vol_elute_ul': 6}}
+        data = {'prep_info': dumps(prep_info_dict),
+                'study': 1,
+                'data_type': 'Metagenomic'}
+        pid = self.qclient.post('/apitest/prep_template/', data=data)['prep']
+
+        sdir = 'qp_woltka/support_files/'
+        fp_to_cp = [
+            'fit_syndna_models_log.txt', 'lin_regress_by_sample_id.yaml',
+            'syndna.biom']
+        for fp in fp_to_cp:
+            copyfile(f'{sdir}/{fp}', f'{out_dir}/{fp}')
+        data = {
+            'filepaths': dumps([
+                (f'{out_dir}/syndna.biom', 'biom'),
+                (f'{out_dir}/lin_regress_by_sample_id.yaml', 'log'),
+                (f'{out_dir}/fit_syndna_models_log.txt', 'log')]),
+            'type': "BIOM",
+            'name': "SynDNA Hits - Test",
+            'prep': pid}
+        params['synDNA hits'] = self.qclient.post(
+            '/apitest/artifact/', data=data)['artifact']
+
+        success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
+                         "doesn't look like one, did you select the correct "
+                         "file?")
+
+        # Finally, adding a full test is close to impossible - too many steps.
 
 
 if __name__ == '__main__':

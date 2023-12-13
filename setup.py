@@ -55,6 +55,8 @@ setup(name='qp-woltka',
                         'h5py >= 2.3.1', 'biom-format',
                         # forcing 0.1.4 because Qiita uses this version
                         'woltka @ https://github.com/'
-                        'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip'],
+                        'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip',
+                        'pysyndna @ https://github.com/AmandaBirmingham/'
+                        'pysyndna/archive/refs/heads/main.zip'],
       classifiers=classifiers
       )

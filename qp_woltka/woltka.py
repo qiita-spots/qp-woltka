@@ -11,6 +11,11 @@ from os.path import join, basename, exists, dirname
 from glob import glob
 from shutil import copy2
 from math import ceil
+from biom import load_table
+from biom.util import biom_open
+import pandas as pd
+from pysyndna import fit_linear_regression_models_for_qiita
+from pysyndna import calc_ogu_cell_counts_per_g_of_sample_for_qiita
 
 from qp_woltka.util import search_by_filename
 
@@ -356,6 +361,10 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
 
+    # storing the prep so we can use later
+    preparation_information = join(output, 'prep_info.tsv')
+    prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
+
     lookup = prep.set_index('run_prefix')['sample_name'].to_dict()
     n_files = 1
     for i, (k, (f, r)) in enumerate(files.items()):
@@ -476,7 +485,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     job_id : str
         The job id
     parameters : dict
-        The parameter values to run split libraries
+        The parameter values to wolka syndna
     out_dir : str
         The path to the job's output directory
 
@@ -490,15 +499,23 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     fp_biom = f'{out_dir}/syndna.biom'
     fp_alng = f'{out_dir}/sams/final/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
-        # ToDo:
-        # add call and creation of synDNA regression
-        # job_info = qclient.get_job_info(job_id)
-        # artifact_id = parameters['input']
-        # files, prep = qclient.artifact_and_preparation_files(artifact_id)
-        # print(files, prep)
-
+        # if we got to this point a preparation file should exist in
+        # the output folder
+        prep = pd.read_csv(
+            f'{out_dir}/prep_info.tsv', index_col=None, sep='\t')
+        output = fit_linear_regression_models_for_qiita(
+            prep, load_table(fp_biom), parameters['min_sample_counts'])
+        # saving results to disk
+        lin_regress_results_fp = f'{out_dir}/lin_regress_by_sample_id.yaml'
+        fit_syndna_models_log_fp = f'{out_dir}/fit_syndna_models_log.txt'
+        with open(lin_regress_results_fp, 'w') as fp:
+            fp.write(output['lin_regress_by_sample_id'])
+        with open(fit_syndna_models_log_fp, 'w') as fp:
+            fp.write(output['fit_syndna_models_log'])
         ainfo = [ArtifactInfo('SynDNA hits', 'BIOM', [
-            (fp_biom, 'biom'), (fp_alng, 'log')])]
+            (fp_biom, 'biom'), (fp_alng, 'log'),
+            (lin_regress_results_fp, 'log'),
+            (fit_syndna_models_log_fp, 'log')])]
     else:
         ainfo = []
         errors.append('Missing files from the "SynDNA hits"; please '
@@ -533,6 +550,84 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
 
 
 def calculate_cell_counts(qclient, job_id, parameters, out_dir):
+    """Run calc_ogu_cell_counts_per_g_of_sample_for_qiita
+
+    Parameters
+    ----------
+    qclient : tgp.qiita_client.QiitaClient
+        The Qiita server client
+    job_id : str
+        The job id
+    parameters : dict
+        The parameter values to wolka syndna
+    out_dir : str
+        The path to the job's output directory
+
+    Returns
+    -------
+    bool, list, str
+        The results of the job
     """
-    """
-    raise ValueError('Not implemented')
+    error = ''
+    # let's get the syndna_id and prep in a single go
+    syndna_id = parameters['synDNA hits']
+    syndna_files, prep = qclient.artifact_and_preparation_files(syndna_id)
+    if 'log' not in syndna_files.keys():
+        error = ("No logs found, are you sure you selected the correct "
+                 "artifact for 'synDNA hits'?")
+    else:
+
+        lin_regress_by_sample_id_fp = [f for f in syndna_files['log']
+                                       if 'lin_regress_by_sample_id' in f]
+        if not lin_regress_by_sample_id_fp:
+            error = ("No 'lin_regress_by_sample_id' log found, are you sure "
+                     " you selected the correct artifact for 'synDNA hits'?")
+        else:
+            lin_regress_by_sample_id_fp = lin_regress_by_sample_id_fp[0]
+
+            # for per_genome_id let's do it separately so we can also ge the
+            # sample information
+            per_genome_id = parameters['Woltka per-genome']
+            ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
+            aparams = ainfo['processing_parameters']
+            ogu_fp = ainfo['files']['biom'][0]['filepath']
+
+            if 'Database' not in aparams or not ogu_fp.endswith('none.biom'):
+                error = ("The selected 'Woltka per-genome' artifact doesn't "
+                         "look like one, did you select the correct file?")
+            else:
+                ogu_counts_per_sample = load_table(ogu_fp)
+
+                db_files = _process_database_files(aparams['Database'])
+                ogu_lengths_fp = db_files["length.map"]
+
+                sample_info = qclient.get(
+                    '/qiita_db/prep_template/%s/data/?sample_information=true'
+                    % ainfo['prep_information'][0])
+                sample_info = pd.DataFrame.from_dict(
+                    sample_info['data'], orient='index')
+                sample_info.reset_index(names='sample_name', inplace=True)
+
+    if error:
+        return False, None, error
+
+    try:
+        output = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
+            sample_info, prep, lin_regress_by_sample_id_fp,
+            ogu_counts_per_sample, ogu_lengths_fp,
+            parameters['read_length'], parameters['min_rsquared'],
+            parameters['min_rsquared'])
+    except Exception as e:
+        return False, None, str(e)
+
+    log_fp = f'{out_dir}/cell_counts.log'
+    with open(log_fp, 'w') as f:
+        f.write(output['calc_cell_counts_log'])
+    biom_fp = f'{out_dir}/cell_counts.biom'
+    with biom_open(biom_fp, 'w') as f:
+        output['cell_count_biom'].to_hdf5(f, f"Cell Counts - {job_id}")
+    ainfo = [
+        ArtifactInfo(
+            'Cell counts', 'BIOM', [(biom_fp, 'biom'), (log_fp, 'log')])]
+
+    return True, ainfo, ""
