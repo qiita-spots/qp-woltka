@@ -504,7 +504,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
         prep = pd.read_csv(
             f'{out_dir}/prep_info.tsv', index_col=None, sep='\t')
         output = fit_linear_regression_models_for_qiita(
-            prep, load_table(fp_biom), parameters['min_sample_counts'])
+            prep, load_table(fp_biom), int(parameters['min_sample_counts']))
         # saving results to disk
         lin_regress_results_fp = f'{out_dir}/lin_regress_by_sample_id.yaml'
         fit_syndna_models_log_fp = f'{out_dir}/fit_syndna_models_log.txt'
