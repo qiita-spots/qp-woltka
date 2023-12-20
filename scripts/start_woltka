@@ -34,6 +34,20 @@ def execute(url, job_id, out_dir):
 
         qclient.update_job_step(
             job_id, "Step 1 of 4: Collecting info and generating submission")
+
+        # these were defined in qp_woltka/__init.py__ while defining the
+        # available commands for this plugin
+        valid_commands = [
+            'Woltka v0.1.4', 'SynDNA Woltka', 'Calculate Cell Counts']
+
+        # this if/elif is the current solution for
+        # https://github.com/qiita-spots/qiita/issues/3340
+        if command not in valid_commands:
+            raise ValueError(f'Not a valid command: "{command}"')
+        elif command == 'Calculate Cell Counts':
+            plugin(url, job_id, out_dir)
+            exit(0)
+
         artifact_id = parameters['input']
         del parameters['input']
         files, prep = qclient.artifact_and_preparation_files(artifact_id)
@@ -46,14 +60,6 @@ def execute(url, job_id, out_dir):
             return False, None, msg
         else:
             directory = directory.pop()
-
-        # these were defined in qp_woltka/__init.py__ while defining the
-        # available commands for this plugin
-        valid_commands = [
-            'Woltka v0.1.4', 'SynDNA Woltka', 'Calculate Cell Counts']
-
-        if command not in valid_commands:
-            raise ValueError(f'Not a valid command: "{command}"')
 
         if command == 'Woltka v0.1.4':
             main_fp, merge_fp = woltka_to_array(

@@ -577,11 +577,13 @@ class WoltkaTests(PluginTestCase):
             'SKB8.640193': {
                 'run_prefix': 'S22205_S104', 'syndna_pool_number': 1,
                 'raw_reads_r1r2': 10000, 'mass_syndna_input_ng': 120,
-                'minipico_dna_concentration_ng_ul': 10, 'vol_elute_ul': 5},
+                'extracted_gdna_concentration_ng_ul': 10,
+                'vol_extracted_elution_ul': 5},
             'SKD8.640184': {
                 'run_prefix': 'S22282_S102', 'syndna_pool_number': 1,
                 'raw_reads_r1r2': 10002, 'mass_syndna_input_ng': 120,
-                'minipico_dna_concentration_ng_ul': 11, 'vol_elute_ul': 6}}
+                'extracted_gdna_concentration_ng_ul': 11,
+                'vol_extracted_elution_ul': 6}}
         data = {'prep_info': dumps(prep_info_dict),
                 'study': 1,
                 'data_type': 'Metagenomic'}
