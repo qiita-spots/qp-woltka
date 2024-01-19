@@ -176,7 +176,6 @@ def _merge_ranges(files):
 
         def add_range(self, start, end):
             self.ranges.append((start, end))
-            self.compress()
 
         def compress(self):
             # Sort ranges by start index
@@ -220,6 +219,7 @@ def _merge_ranges(files):
                 gotu = mems.pop(0)
                 for srange, erange in zip(*[iter(mems)]*2):
                     merger[gotu].add_range(int(srange), int(erange))
+    merger.compress()
 
     return merger
 
