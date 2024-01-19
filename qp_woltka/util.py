@@ -219,7 +219,9 @@ def _merge_ranges(files):
                 gotu = mems.pop(0)
                 for srange, erange in zip(*[iter(mems)]*2):
                     merger[gotu].add_range(int(srange), int(erange))
-    merger.compress()
+
+        for k, v in merger.items():
+            merger[k].compress()
 
     return merger
 
