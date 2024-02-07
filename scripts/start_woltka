@@ -32,9 +32,6 @@ def execute(url, job_id, out_dir):
         command = job_info['command']
         parameters = job_info['parameters']
 
-        qclient.update_job_step(
-            job_id, "Step 1 of 4: Collecting info and generating submission")
-
         # these were defined in qp_woltka/__init.py__ while defining the
         # available commands for this plugin
         valid_commands = [
@@ -47,6 +44,9 @@ def execute(url, job_id, out_dir):
         elif command == 'Calculate Cell Counts':
             plugin(url, job_id, out_dir)
             exit(0)
+
+        qclient.update_job_step(
+            job_id, "Step 1 of 4: Collecting info and generating submission")
 
         artifact_id = parameters['input']
         del parameters['input']
