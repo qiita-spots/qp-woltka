@@ -98,6 +98,6 @@ outputs = {
 }
 dflt_param_set = {}
 calculate_rna_copy_counts_cmd = QiitaCommand(
-    'RNA Copy Counts', "Calculate RNA copy counts per-gene",
+    'Calculate RNA Copy Counts', "Calculate RNA copy counts per-gene",
     calculate_rna_copy_counts, req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(calculate_rna_copy_counts_cmd)
