@@ -16,6 +16,7 @@ from biom.util import biom_open
 import pandas as pd
 from pysyndna import fit_linear_regression_models_for_qiita
 from pysyndna import calc_ogu_cell_counts_per_g_of_sample_for_qiita
+from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
 
 from qp_woltka.util import search_by_filename
 
@@ -629,5 +630,64 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
     ainfo = [
         ArtifactInfo(
             'Cell counts', 'BIOM', [(biom_fp, 'biom'), (log_fp, 'log')])]
+
+    return True, ainfo, ""
+
+
+def calculate_rna_copy_counts(qclient, job_id, parameters, out_dir):
+    """Run calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
+
+    Parameters
+    ----------
+    qclient : tgp.qiita_client.QiitaClient
+        The Qiita server client
+    job_id : str
+        The job id
+    parameters : dict
+        The parameter values to wolka syndna
+    out_dir : str
+        The path to the job's output directory
+
+    Returns
+    -------
+    bool, list, str
+        The results of the job
+    """
+
+    per_gene_id = parameters['Woltka per-gene']
+    ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_gene_id)
+    aparams = ainfo['processing_parameters']
+    pg_fp = ainfo['files']['biom'][0]['filepath']
+
+    if 'Database' not in aparams or not pg_fp.endswith('per-gene.biom'):
+        error = ("The selected 'Woltka per-gene' artifact doesn't "
+                 "look like one, did you select the correct file?")
+        return False, None, error
+
+    pergene = load_table(pg_fp)
+    db_files = _process_database_files(aparams['Database'])
+    ogu_orf_coords_fp = db_files["gene_coordinates"]
+
+    _, prep_info = qclient.artifact_and_preparation_files(per_gene_id)
+
+    sample_info = qclient.get(
+        '/qiita_db/prep_template/%s/data/?sample_information=true'
+        % ainfo['prep_information'][0])
+    sample_info = pd.DataFrame.from_dict(
+        sample_info['data'], orient='index')
+    sample_info.reset_index(names='sample_name', inplace=True)
+
+    try:
+        output = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+            sample_info, prep_info, pergene, ogu_orf_coords_fp)
+    except Exception as e:
+        return False, None, str(e)
+
+    biom_fp = f'{out_dir}/rna_copy_counts.biom'
+    with biom_open(biom_fp, 'w') as f:
+        output['rna_copy_counts'].to_hdf5(f, f"RNA copy counts - {job_id}")
+    ainfo = [
+        ArtifactInfo(
+            'RNA Copy Counts', 'BIOM', [(biom_fp, 'biom')])]
 
     return True, ainfo, ""
