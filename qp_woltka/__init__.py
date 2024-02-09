@@ -96,7 +96,7 @@ opt_params = {}
 outputs = {
     'RNA copy counts': 'BIOM'
 }
-dflt_param_set = {}
+dflt_param_set = {'default': {}}
 calculate_rna_copy_counts_cmd = QiitaCommand(
     'Calculate RNA Copy Counts', "Calculate RNA copy counts per-gene",
     calculate_rna_copy_counts, req_params, opt_params, outputs, dflt_param_set)
