@@ -685,9 +685,9 @@ def calculate_rna_copy_counts(qclient, job_id, parameters, out_dir):
 
     biom_fp = f'{out_dir}/rna_copy_counts.biom'
     with biom_open(biom_fp, 'w') as f:
-        output['rna_copy_counts'].to_hdf5(f, f"RNA copy counts - {job_id}")
+        output.to_hdf5(f, f"RNA copy counts - {job_id}")
     ainfo = [
         ArtifactInfo(
-            'RNA Copy Counts', 'BIOM', [(biom_fp, 'biom')])]
+            'RNA copy counts', 'BIOM', [(biom_fp, 'biom')])]
 
     return True, ainfo, ""
