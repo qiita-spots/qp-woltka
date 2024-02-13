@@ -616,8 +616,8 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
         output = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info, prep, lin_regress_by_sample_id_fp,
             ogu_counts_per_sample, ogu_lengths_fp,
-            parameters['read_length'], parameters['min_rsquared'],
-            parameters['min_rsquared'])
+            int(parameters['read_length']), float(parameters['min_coverage']),
+            float(parameters['min_rsquared']))
     except Exception as e:
         return False, None, str(e)
 
