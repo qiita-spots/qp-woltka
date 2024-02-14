@@ -678,16 +678,19 @@ def calculate_rna_copy_counts(qclient, job_id, parameters, out_dir):
     sample_info.reset_index(names='sample_name', inplace=True)
 
     try:
-        output = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
+        output, log_msgs = calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita(
             sample_info, prep_info, pergene, ogu_orf_coords_fp)
     except Exception as e:
         return False, None, str(e)
 
+    log_fp = f'{out_dir}/rna_copy_counts.log'
+    with open(log_fp, 'w') as f:
+        f.write('\n'.join(log_msgs))
     biom_fp = f'{out_dir}/rna_copy_counts.biom'
     with biom_open(biom_fp, 'w') as f:
         output.to_hdf5(f, f"RNA copy counts - {job_id}")
     ainfo = [
         ArtifactInfo(
-            'RNA copy counts', 'BIOM', [(biom_fp, 'biom')])]
+            'RNA copy counts', 'BIOM', [(biom_fp, 'biom'), (log_fp, 'log')])]
 
     return True, ainfo, ""
