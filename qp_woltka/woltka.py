@@ -685,7 +685,7 @@ def calculate_rna_copy_counts(qclient, job_id, parameters, out_dir):
 
     log_fp = f'{out_dir}/rna_copy_counts.log'
     with open(log_fp, 'w') as f:
-        f.write('\n'.join(log_msgs))
+        f.write(''.join(log_msgs))
     biom_fp = f'{out_dir}/rna_copy_counts.biom'
     with biom_open(biom_fp, 'w') as f:
         output.to_hdf5(f, f"RNA copy counts - {job_id}")
