@@ -571,18 +571,18 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
     """
     error = ''
     # let's get the syndna_id and prep in a single go
-    syndna_id = parameters['synDNA hits']
+    syndna_id = parameters['SynDNA hits']
     syndna_files, prep = qclient.artifact_and_preparation_files(syndna_id)
     if 'log' not in syndna_files.keys():
         error = ("No logs found, are you sure you selected the correct "
-                 "artifact for 'synDNA hits'?")
+                 "artifact for 'SynDNA hits'?")
     else:
 
         lin_regress_by_sample_id_fp = [f for f in syndna_files['log']
                                        if 'lin_regress_by_sample_id' in f]
         if not lin_regress_by_sample_id_fp:
             error = ("No 'lin_regress_by_sample_id' log found, are you sure "
-                     " you selected the correct artifact for 'synDNA hits'?")
+                     " you selected the correct artifact for 'SynDNA hits'?")
         else:
             lin_regress_by_sample_id_fp = lin_regress_by_sample_id_fp[0]
 

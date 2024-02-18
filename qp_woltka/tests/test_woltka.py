@@ -557,7 +557,7 @@ class WoltkaTests(PluginTestCase):
         self.assertCountEqual(ainfo, exp)
 
     def test_calculate_cell_counts(self):
-        params = {'synDNA hits': 5, 'Woltka per-genome': 6,
+        params = {'SynDNA hits': 5, 'Woltka per-genome': 6,
                   'min_coverage': 1, 'read_length': 150,
                   'min_rsquared': 0.8}
         job_id = 'my-job-id'
@@ -569,7 +569,7 @@ class WoltkaTests(PluginTestCase):
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
         self.assertEqual(msg, "No logs found, are you sure you selected the "
-                         "correct artifact for 'synDNA hits'?")
+                         "correct artifact for 'SynDNA hits'?")
 
         # this should fail too because but now we are getting deeper into
         # the validation
@@ -603,7 +603,7 @@ class WoltkaTests(PluginTestCase):
             'type': "BIOM",
             'name': "SynDNA Hits - Test",
             'prep': pid}
-        params['synDNA hits'] = self.qclient.post(
+        params['SynDNA hits'] = self.qclient.post(
             '/apitest/artifact/', data=data)['artifact']
 
         success, ainfo, msg = calculate_cell_counts(

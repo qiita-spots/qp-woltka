@@ -64,7 +64,7 @@ plugin.register_command(syndna_cmd)
 
 # WGS cell counts
 req_params = {
-    'synDNA hits': ('artifact', ['BIOM']),
+    'SynDNA hits': ('artifact', ['BIOM']),
     'Woltka per-genome': ('artifact', ['BIOM'])
 }
 opt_params = {
