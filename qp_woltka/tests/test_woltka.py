@@ -18,7 +18,7 @@ from json import dumps
 from qp_woltka import plugin
 from qp_woltka.woltka import (
     woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna,
-    calculate_cell_counts)
+    calculate_cell_counts, calculate_rna_copy_counts)
 
 
 class WoltkaTests(PluginTestCase):
@@ -557,7 +557,7 @@ class WoltkaTests(PluginTestCase):
         self.assertCountEqual(ainfo, exp)
 
     def test_calculate_cell_counts(self):
-        params = {'synDNA hits': 5, 'Woltka per-genome': 6,
+        params = {'SynDNA hits': 5, 'Woltka per-genome': 6,
                   'min_coverage': 1, 'read_length': 150,
                   'min_rsquared': 0.8}
         job_id = 'my-job-id'
@@ -569,7 +569,7 @@ class WoltkaTests(PluginTestCase):
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
         self.assertEqual(msg, "No logs found, are you sure you selected the "
-                         "correct artifact for 'synDNA hits'?")
+                         "correct artifact for 'SynDNA hits'?")
 
         # this should fail too because but now we are getting deeper into
         # the validation
@@ -603,7 +603,7 @@ class WoltkaTests(PluginTestCase):
             'type': "BIOM",
             'name': "SynDNA Hits - Test",
             'prep': pid}
-        params['synDNA hits'] = self.qclient.post(
+        params['SynDNA hits'] = self.qclient.post(
             '/apitest/artifact/', data=data)['artifact']
 
         success, ainfo, msg = calculate_cell_counts(
@@ -612,6 +612,22 @@ class WoltkaTests(PluginTestCase):
         self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
                          "doesn't look like one, did you select the correct "
                          "file?")
+
+        # Finally, adding a full test is close to impossible - too many steps.
+
+    def test_calculate_rna_copy_counts(self):
+        params = {'Woltka per-gene': 6}
+        job_id = 'my-job-id'
+        out_dir = mkdtemp()
+        self._clean_up_files.append(out_dir)
+
+        # this should fail cause we don't have valid data
+        success, ainfo, msg = calculate_rna_copy_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "The selected 'Woltka per-gene' artifact "
+                         "doesn't look like one, did you select the "
+                         "correct file?")
 
         # Finally, adding a full test is close to impossible - too many steps.
 

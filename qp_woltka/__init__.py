@@ -8,7 +8,8 @@
 
 from qiita_client import QiitaPlugin, QiitaCommand
 
-from .woltka import woltka, woltka_syndna, calculate_cell_counts
+from .woltka import (woltka, woltka_syndna, calculate_cell_counts,
+                     calculate_rna_copy_counts)
 from qp_woltka.util import generate_woltka_dflt_params, get_dbs, plugin_details
 from os import environ
 
@@ -61,9 +62,9 @@ syndna_cmd = QiitaCommand(
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(syndna_cmd)
 
-# Cell counts
+# WGS cell counts
 req_params = {
-    'synDNA hits': ('artifact', ['BIOM']),
+    'SynDNA hits': ('artifact', ['BIOM']),
     'Woltka per-genome': ('artifact', ['BIOM'])
 }
 opt_params = {
@@ -85,3 +86,18 @@ calculate_cell_counts_cmd = QiitaCommand(
     'Calculate Cell Counts', "Calculate cell counts per-genome",
     calculate_cell_counts, req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(calculate_cell_counts_cmd)
+
+
+# MTX calculate RNA copy counts
+req_params = {
+    'Woltka per-gene': ('artifact', ['BIOM'])
+}
+opt_params = {}
+outputs = {
+    'RNA copy counts': 'BIOM'
+}
+dflt_param_set = {'default': {}}
+calculate_rna_copy_counts_cmd = QiitaCommand(
+    'Calculate RNA Copy Counts', "Calculate RNA copy counts per-gene",
+    calculate_rna_copy_counts, req_params, opt_params, outputs, dflt_param_set)
+plugin.register_command(calculate_rna_copy_counts_cmd)
