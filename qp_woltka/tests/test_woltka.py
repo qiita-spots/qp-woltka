@@ -18,7 +18,8 @@ from json import dumps
 from qp_woltka import plugin
 from qp_woltka.woltka import (
     woltka_to_array, woltka, woltka_syndna_to_array, woltka_syndna,
-    calculate_cell_counts, calculate_rna_copy_counts)
+    calculate_cell_counts, calculate_rna_copy_counts,
+    calculate_cell_counts_skin)
 
 
 class WoltkaTests(PluginTestCase):
@@ -557,6 +558,11 @@ class WoltkaTests(PluginTestCase):
         self.assertCountEqual(ainfo, exp)
 
     def test_calculate_cell_counts(self):
+        """
+        Notes:
+            calculate_cell_counts and calculate_cell_counts_skin are almost
+            the same method so we are going to test both here
+        """
         params = {'SynDNA hits': 5, 'Woltka per-genome': 6,
                   'min_coverage': 1, 'read_length': 150,
                   'min_rsquared': 0.8}
@@ -566,6 +572,11 @@ class WoltkaTests(PluginTestCase):
 
         # this should fail cause we don't have valid data
         success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "No logs found, are you sure you selected the "
+                         "correct artifact for 'SynDNA hits'?")
+        success, ainfo, msg = calculate_cell_counts_skin(
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
         self.assertEqual(msg, "No logs found, are you sure you selected the "
@@ -607,6 +618,12 @@ class WoltkaTests(PluginTestCase):
             '/apitest/artifact/', data=data)['artifact']
 
         success, ainfo, msg = calculate_cell_counts(
+            self.qclient, job_id, params, out_dir)
+        self.assertFalse(success)
+        self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
+                         "doesn't look like one, did you select the correct "
+                         "file?")
+        success, ainfo, msg = calculate_cell_counts_skin(
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
         self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
