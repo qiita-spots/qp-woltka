@@ -9,7 +9,7 @@
 from qiita_client import QiitaPlugin, QiitaCommand
 
 from .woltka import (woltka, woltka_syndna, calculate_cell_counts,
-                     calculate_rna_copy_counts)
+                     calculate_rna_copy_counts, calculate_cell_counts_skin)
 from qp_woltka.util import generate_woltka_dflt_params, get_dbs, plugin_details
 from os import environ
 
@@ -87,6 +87,11 @@ calculate_cell_counts_cmd = QiitaCommand(
     calculate_cell_counts, req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(calculate_cell_counts_cmd)
 
+calculate_cell_counts_skin_cmd = QiitaCommand(
+    'Calculate Cell Counts Skin', "Calculate cell counts per-genome for skin",
+    calculate_cell_counts_skin, req_params, opt_params, outputs,
+    dflt_param_set)
+plugin.register_command(calculate_cell_counts_skin_cmd)
 
 # MTX calculate RNA copy counts
 req_params = {
