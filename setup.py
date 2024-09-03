@@ -48,8 +48,7 @@ setup(name='qp-woltka',
             'support_files/*',
             'databases/*']},
       scripts=['scripts/configure_woltka', 'scripts/start_woltka',
-               'scripts/finish_woltka', 'scripts/woltka_merge',
-               'scripts/demux', 'scripts/mux'],
+               'scripts/finish_woltka', 'scripts/woltka_merge'],
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
                         'h5py >= 2.3.1', 'biom-format',
@@ -57,6 +56,8 @@ setup(name='qp-woltka',
                         'woltka @ https://github.com/'
                         'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
-                        'pysyndna/archive/refs/heads/main.zip'],
+                        'pysyndna/archive/refs/heads/main.zip',
+                        'mxdx @ https://github.com/wasade/mxdx/archive/'
+                        'refs/heads/main.zip'],
       classifiers=classifiers
       )

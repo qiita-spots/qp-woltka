@@ -82,7 +82,10 @@ class WoltkaTests(PluginTestCase):
             self.params['Database'] = database
 
         data = {'user': 'demo@microbio.me',
-                'command': dumps(['qp-woltka', '2023.11', 'Woltka v0.1.4']),
+                'command': dumps(
+                    ['qp-woltka', '2023.11',
+                     'Woltka v0.1.4, pairends + suppress singleton & '
+                     'discordant']),
                 'status': 'running',
                 'parameters': dumps(self.params)}
         job_id = self.qclient.post(
@@ -209,13 +212,9 @@ class WoltkaTests(PluginTestCase):
         self.assertTrue(success)
 
         exp = [
-            ArtifactInfo('Alignment Profile', 'BIOM',
-                         [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/alignment/coverages.tgz',
-                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')])]
         self.assertCountEqual(ainfo, exp)
 
@@ -343,13 +342,9 @@ class WoltkaTests(PluginTestCase):
         self.assertTrue(success)
 
         exp = [
-            ArtifactInfo('Alignment Profile', 'BIOM',
-                         [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/alignment/coverages.tgz',
-                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
                          [(f'{out_dir}/none.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
                          [(f'{out_dir}/per-gene.biom', 'biom'),
@@ -373,8 +368,6 @@ class WoltkaTests(PluginTestCase):
             self.qclient, job_id, self.params, out_dir)
 
         exp_msg = '\n'.join([
-            'Missing files from the "Alignment Profile"; please contact '
-            'qiita.help@gmail.com for more information',
             'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '

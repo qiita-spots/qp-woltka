@@ -21,6 +21,7 @@ from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
 from qp_woltka.util import search_by_filename
 
 from qiita_client import ArtifactInfo
+from qiita_client.util import system_call
 
 # resources per job
 PPN = 8
@@ -31,6 +32,7 @@ MEMORY = '90g'
 LARGE_MEMORY = '150g'
 MERGE_MEMORY = '140g'
 SYNDNA_MEMORY = '190g'
+BATCHSIZE = 500000
 
 WALLTIME = '40:00:00'
 MERGE_WALLTIME = '30:00:00'
@@ -77,18 +79,40 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     """
     environment = environ["ENVIRONMENT"]
 
+    # processing html_summary
+    html_summary = files.pop('html_summary')
+    df = pd.read_html(html_summary)[0]
+    dname = dirname(html_summary)
+    fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
+        lambda x: (x.filename.rsplit('_R1')[0],
+                   (x.filename, x.reads)), axis=1).values)
+    rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+        lambda x: (x.filename.rsplit('_R2')[0],
+                   (x.filename, x.reads)), axis=1).values)
+    lines = ['filename_1\trecord_count']
+    if rev:
+        lines = ['filename_1\tfilename_2\trecord_count']
+    for k, (fn, reads) in fwd.items():
+        line = f'{dname}/{fn}\t'
+        if k in rev:
+            rfn = rev.pop(k)[0]
+            line += f'{dname}/{rfn}\t'
+        line += f'{reads}'
+        lines.append(line)
+    files_list_fp = f'{output}/files_list.tsv'
+    with open(files_list_fp, 'w') as fp:
+        fp.write('\n'.join(lines))
+
+    cmd = ['mxdx', 'get-max-batch-number', '--file-map', files_list_fp,
+           '--batch-size', f'{BATCHSIZE}']
+    n_files, stderr, return_value = system_call()
+    if return_value != 0 or stderr:
+        raise ValueError('`mxdx get-max-batch-number` failed '
+                         f'{return_value}: {stderr}')
+
     db_files = _process_database_files(database_bowtie2)
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
-
-    n_files = 1
-    for i, (k, (f, r)) in enumerate(files.items()):
-        if i >= n_files*TASKS_IN_SCRIPT:
-            n_files += 1
-        with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
-            fh.write(f'{f["filepath"]}\n')
-            if r is not None:
-                fh.write(f'{r["filepath"]}\n')
 
     ranks = ["free", "none"]
     # now, let's establish the merge script.
@@ -175,15 +199,19 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     # https://github.com/BenLangmead/bowtie2/issues/311
     preparation_information = join(output, 'prep_info.tsv')
     prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
-    bowtie2 = 'mux ${files} | ' + \
-              f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
-              '-q - --seed 42 ' + \
-              '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
-              '--rdg "0,1" --rfg "0,1" --score-min ' + \
-              '"L,0,-0.05" --no-head --no-unal' + \
-              " | cut -f1-9 | sed 's/$/\t*\t*/'" + \
-              ' | demux ${output} ' + preparation_information + \
-              ' | sort | uniq > sample_processing_${SLURM_ARRAY_TASK_ID}.log'
+    bowtie2 = (
+        f'mxdx mux --file-map {files_list_fp} --batch '
+        '${SLURM_ARRAY_TASK_ID} '
+        f'--batch-size {BATCHSIZE} | '
+        'bowtie2 -p ${bt2_cores} '
+        f'-x {database_bowtie2} -q - --seed 42 '
+        '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+        '--score-min "L,0,-0.05" --no-head --no-unal | '
+        "cut -f1-9 | sed 's/$/\t*\t*/' | "
+        f'mxdx demux --file-map {files_list_fp} '
+        '--batch ${SLURM_ARRAY_TASK_ID} '
+        f'--batch-size {BATCHSIZE} --output-base {output}/tmp '
+        '--extension sam.xz')
     woltka = 'woltka classify -i ${f} ' + \
              '-o ${f}.woltka-taxa ' + \
              '--no-demux ' + \
@@ -198,6 +226,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
+             '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND',
              f'#SBATCH --job-name {name}',
              '#SBATCH -N 1',
              f'#SBATCH -n {PPN}',
@@ -216,6 +245,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'dbname={db_name}',
              f'output={output}',
              'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`',
+             'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))',
              bowtie2,
              '# for each one of our input files, form woltka commands, ',
              '# and farm off to gnu parallel',
@@ -279,21 +309,12 @@ def woltka(qclient, job_id, parameters, out_dir):
 
     errors = []
     ainfo = []
-    fp_biom = f'{out_dir}/free.biom'
-    fp_alng = f'{out_dir}/alignment.tar'
-    if exists(fp_biom) and exists(fp_alng):
-        ainfo = [ArtifactInfo('Alignment Profile', 'BIOM', [
-            (fp_biom, 'biom'), (fp_alng, 'log'),
-            (_coverage_copy(f'{out_dir}/alignment/'), 'plain_text')])]
-    else:
-        ainfo = []
-        errors.append('Missing files from the "Alignment Profile"; please '
-                      'contact qiita.help@gmail.com for more information')
 
     fp_biom = f'{out_dir}/none.biom'
-    if exists(fp_biom):
+    fp_alng = f'{out_dir}/alignment.tar'
+    if exists(fp_biom) and exists(fp_alng):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
-            (fp_biom, 'biom'),
+            (fp_biom, 'biom'), (fp_alng, 'log'),
             (_coverage_copy(f'{out_dir}/none/'), 'plain_text')]))
     else:
         errors.append('Table none/per-genome was not created, please contact '
