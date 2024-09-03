@@ -64,6 +64,29 @@ def client_connect(url):
     return qclient
 
 
+def search_by_filename(fname, lookup):
+    if fname in lookup:
+        return lookup[fname]
+
+    original = fname
+    while '_' in fname:
+        fname = fname.rsplit('_', 1)[0]
+        if fname in lookup:
+            return lookup[fname]
+
+    fname = original
+    while '.' in fname:
+        fname = fname.rsplit('.', 1)[0]
+        if fname in lookup:
+            return lookup[fname]
+
+    for rp in lookup:
+        if original.startswith(rp):
+            return lookup[rp]
+
+    raise KeyError("Cannot determine run_prefix for %s" % original)
+
+
 def _merge_ranges(files):
     # the lines below are borrowed from zebra filter but they are sligthly
     # modified; mainly the autocompress parameter was deleted so it always
