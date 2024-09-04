@@ -83,7 +83,7 @@ class WoltkaTests(PluginTestCase):
 
         data = {'user': 'demo@microbio.me',
                 'command': dumps(
-                    ['qp-woltka', '2023.11',
+                    ['qp-woltka', '2024.09',
                      'Woltka v0.1.4, pairends + suppress singleton & '
                      'discordant']),
                 'status': 'running',
