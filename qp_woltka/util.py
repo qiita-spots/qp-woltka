@@ -59,7 +59,7 @@ def client_connect(url):
         config.readfp(conf_file)
     qclient = QiitaClient(url, config.get('oauth2', 'CLIENT_ID'),
                           config.get('oauth2', 'CLIENT_SECRET'),
-                          server_cert=config.get('oauth2', 'SERVER_CERT'))
+                          config.get('oauth2', 'SERVER_CERT'))
 
     return qclient
 
