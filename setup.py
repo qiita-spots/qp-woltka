@@ -51,7 +51,7 @@ setup(name='qp-woltka',
                'scripts/finish_woltka', 'scripts/woltka_merge'],
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
-                        'h5py >= 2.3.1', 'biom-format',
+                        'h5py >= 2.3.1', 'biom-format', 'lxml',
                         # forcing 0.1.4 because Qiita uses this version
                         'woltka @ https://github.com/'
                         'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip',

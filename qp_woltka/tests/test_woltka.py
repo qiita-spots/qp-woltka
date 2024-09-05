@@ -59,18 +59,21 @@ class WoltkaTests(PluginTestCase):
         fp1_2 = join(in_dir, 'S22205_S104_L001_R2_001.fastq.gz')
         fp2_1 = join(in_dir, 'S22282_S102_L001_R1_001.fastq.gz')
         fp2_2 = join(in_dir, 'S22282_S102_L001_R2_001.fastq.gz')
+        fp_summary = join(in_dir, 'summary.html')
         source_dir = 'qp_woltka/support_files'
         copyfile(f'{source_dir}/S22205_S104_L001_R1_001.fastq.gz', fp1_1)
         copyfile(f'{source_dir}/S22205_S104_L001_R2_001.fastq.gz', fp1_2)
         copyfile(f'{source_dir}/S22282_S102_L001_R1_001.fastq.gz', fp2_1)
         copyfile(f'{source_dir}/S22282_S102_L001_R2_001.fastq.gz', fp2_2)
+        copyfile(f'{source_dir}/summary.html', fp_summary)
 
         data = {
             'filepaths': dumps([
                 (fp1_1, 'raw_forward_seqs'),
                 (fp1_2, 'raw_reverse_seqs'),
                 (fp2_1, 'raw_forward_seqs'),
-                (fp2_2, 'raw_reverse_seqs')]),
+                (fp2_2, 'raw_reverse_seqs'),
+                (fp_summary, 'html_summary')]),
             'type': "per_sample_FASTQ",
             'name': "Test Woltka artifact",
             'prep': pid}
@@ -104,6 +107,8 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         files, prep = self.qclient.artifact_and_preparation_files(aid)
+        html_summary = self.qclient.get_artifact_html_summary(aid)
+        files['html_summary'] = html_summary
 
         url = 'this-is-my-url'
         database = self.params['Database']
@@ -123,6 +128,7 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
@@ -130,7 +136,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mem 90g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-1%8\n',
+            '#SBATCH --array 0-3%8\n',
             f'cd {out_dir}\n',
             f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
@@ -141,13 +147,16 @@ class WoltkaTests(PluginTestCase):
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'mux ${files} | bowtie2 -p 8 -x '
-            f'{database} -q - --seed 42 '
-            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
-            'sed \'s/$/\t*\t*/\' | demux ${output} '
-            f'{prep_file} | sort | uniq > '
-            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
+            'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))\n',
+            f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
+            'bowtie2 -p ${bt2_cores} -x '
+            f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
+            '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
+            "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'--file-map {out_dir}/files_list.tsv '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
+            f'{out_dir}/tmp --extension sam.xz\n',
             '# for each one of our input files, form woltka commands, \n',
             '# and farm off to gnu parallel\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
@@ -231,6 +240,8 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         files, prep = self.qclient.artifact_and_preparation_files(aid)
+        html_summary = self.qclient.get_artifact_html_summary(aid)
+        files['html_summary'] = html_summary
 
         url = 'this-is-my-url'
         main_fp, merge_fp = woltka_to_array(
@@ -249,6 +260,7 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
@@ -256,7 +268,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mem 90g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-1%8\n',
+            '#SBATCH --array 0-3%8\n',
             f'cd {out_dir}\n',
             f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
@@ -267,13 +279,16 @@ class WoltkaTests(PluginTestCase):
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'mux ${files} | bowtie2 -p 8 -x '
-            f'{database} -q - --seed 42 '
-            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
-            'sed \'s/$/\t*\t*/\' | demux ${output} '
-            f'{prep_file} | sort | uniq > '
-            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
+            'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))\n',
+            f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
+            'bowtie2 -p ${bt2_cores} -x '
+            f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
+            '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
+            "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'--file-map {out_dir}/files_list.tsv '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
+            f'{out_dir}/tmp --extension sam.xz\n',
             '# for each one of our input files, form woltka commands, \n',
             '# and farm off to gnu parallel\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',

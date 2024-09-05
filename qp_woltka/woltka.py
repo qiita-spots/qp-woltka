@@ -103,12 +103,14 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     with open(files_list_fp, 'w') as fp:
         fp.write('\n'.join(lines))
 
-    cmd = ['mxdx', 'get-max-batch-number', '--file-map', files_list_fp,
-           '--batch-size', f'{BATCHSIZE}']
-    n_files, stderr, return_value = system_call()
+    cmd = (f'mxdx get-max-batch-number --file-map {files_list_fp} '
+           f'--batch-size {BATCHSIZE}')
+    n_files, stderr, return_value = system_call(cmd)
     if return_value != 0 or stderr:
         raise ValueError('`mxdx get-max-batch-number` failed '
                          f'{return_value}: {stderr}')
+    # just making sure that n_files is an int
+    n_files = int(n_files)
 
     db_files = _process_database_files(database_bowtie2)
     db_folder = dirname(database_bowtie2)
@@ -234,7 +236,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --mem {memory}',
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
-             f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
+             f'#SBATCH --array 0-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
              f'prep_full_path={preparation_information}',
              f'{environment}',
