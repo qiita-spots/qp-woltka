@@ -53,7 +53,7 @@ setup(name='qp-woltka',
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
                         'h5py >= 2.3.1', 'biom-format', 'lxml',
                         # forcing 0.1.4 because Qiita uses this version
-                        'woltka @ https://github.com/', 'polars-lts-cpu',
+                        'polars-lts-cpu', 'woltka @ https://github.com/',
                         'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
                         'pysyndna/archive/refs/heads/main.zip',
