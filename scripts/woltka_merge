@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
 import os
-import biom
-import glob as glob_
-import h5py
+# import biom
+# import glob as glob_
+# import h5py
 import click
-from qp_woltka.util import merge_ranges, coverage_percentage
+import pandas as pd
+
+from qiita_client.util import system_call
+from qp_woltka.util import (
+    # merge_ranges, coverage_percentage,
+    search_by_filename)
 
 
 @click.command()
@@ -15,52 +20,69 @@ from qp_woltka.util import merge_ranges, coverage_percentage
 @click.option('--rename/--no-rename', type=bool, default=False)
 @click.option('--length_map', type=click.Path(exists=True), required=False)
 def merge(base, glob, name, rename, length_map):
-    # this is the size that was used in the tests that kept a small ~2.5G
-    # memory footprint
-    chunk_size = 30
-    full = None
+    aln_fp = f'{base}/alignments'
+    cmd = (f'mxdx consolidate-partials --output-base {aln_fp} '
+           '--extension sam.xz')
+    stdout, stderr, return_value = system_call(cmd)
+    if return_value != 0 or stderr:
+        raise ValueError('`mxdx consolidate-partials` failed '
+                         f'{return_value}: {stderr}')
 
-    search = os.path.join(base, glob)
-    tables = glob_.glob(search)
-    for block in range(0, len(tables), chunk_size):
-        chunk = tables[block:block + chunk_size]
+    prep = pd.read_csv(f'{base}/prep_info.tsv', dtype=str, sep='\t')
+    lookup = prep.set_index('run_prefix')['sample_name'].to_dict()
+    for fname in os.listdir(aln_fp):
+        if fname.startswith('dx-partial.'):
+            continue
+        nfname = search_by_filename(fname, lookup)
+        rename(f'{aln_fp}/{fname}', f'{aln_fp}/{nfname}.sam.xz')
 
-        loaded = []
-        for c in chunk:
-            skip = True
-            if biom.util.is_hdf5_file(c):
-                skip = False
-            else:
-                with open(c) as fh:
-                    for i, l in enumerate(fh):
-                        if i >= 1 and l:
-                            skip = False
-                            break
-            if not skip:
-                temp = biom.load_table(c)
-                if temp.shape != (0, 0):
-                    loaded.append(temp)
-
-        if full is None:
-            if len(loaded) == 1:
-                full = loaded[0]
-            else:
-                full = loaded[0].concat(loaded[1:])
-        else:
-            full = full.concat(loaded)
-
-    with h5py.File(f'{base}/{name}.biom', 'w') as out:
-        full.to_hdf5(out, 'fast-merge')
-
-    if name == 'free' and length_map is not None:
-        coverages = glob_.glob('coverages/*.cov')
-        artifact_cov = f'{base}/artifact.cov'
-        with open(artifact_cov, 'w') as out:
-            out.write('\n'.join(merge_ranges(coverages)))
-
-        with open(f'{base}/coverage_percentage.txt', 'w') as out:
-            out.write('\n'.join(
-                coverage_percentage([artifact_cov], length_map)))
+    #
+    # # this is the size that was used in the tests that kept a small ~2.5G
+    # # memory footprint
+    # chunk_size = 30
+    # full = None
+    #
+    # search = os.path.join(base, glob)
+    # tables = glob_.glob(search)
+    # for block in range(0, len(tables), chunk_size):
+    #     chunk = tables[block:block + chunk_size]
+    #
+    #     loaded = []
+    #     for c in chunk:
+    #         skip = True
+    #         if biom.util.is_hdf5_file(c):
+    #             skip = False
+    #         else:
+    #             with open(c) as fh:
+    #                 for i, l in enumerate(fh):
+    #                     if i >= 1 and l:
+    #                         skip = False
+    #                         break
+    #         if not skip:
+    #             temp = biom.load_table(c)
+    #             if temp.shape != (0, 0):
+    #                 loaded.append(temp)
+    #
+    #     if full is None:
+    #         if len(loaded) == 1:
+    #             full = loaded[0]
+    #         else:
+    #             full = loaded[0].concat(loaded[1:])
+    #     else:
+    #         full = full.concat(loaded)
+    #
+    # with h5py.File(f'{base}/{name}.biom', 'w') as out:
+    #     full.to_hdf5(out, 'fast-merge')
+    #
+    # if name == 'free' and length_map is not None:
+    #     coverages = glob_.glob('coverages/*.cov')
+    #     artifact_cov = f'{base}/artifact.cov'
+    #     with open(artifact_cov, 'w') as out:
+    #         out.write('\n'.join(merge_ranges(coverages)))
+    #
+    #     with open(f'{base}/coverage_percentage.txt', 'w') as out:
+    #         out.write('\n'.join(
+    #             coverage_percentage([artifact_cov], length_map)))
 
 
 if __name__ == '__main__':

@@ -212,7 +212,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         "cut -f1-9 | sed 's/$/\t*\t*/' | "
         f'mxdx demux --file-map {files_list_fp} '
         '--batch ${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} --output-base {output}/tmp '
+        f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
         '--extension sam.xz')
     woltka = 'woltka classify -i ${f} ' + \
              '-o ${f}.woltka-taxa ' + \
@@ -260,14 +260,6 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
                      f'-c {db_files["gene_coordinates"]} '
                      '-o ${f}.woltka-per-gene --no-demux"')
     lines.append('done | parallel -j 8')
-
-    # finally, compress each one of our sam files
-    lines.extend([
-        'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
-        'do',
-        '  # compress it',
-        '  echo "xz -1 -T1 ${f}"',
-        'done | parallel -j 8'])
 
     lines.append('date')  # end time
 

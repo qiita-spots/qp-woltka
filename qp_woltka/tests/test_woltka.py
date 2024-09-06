@@ -156,7 +156,7 @@ class WoltkaTests(PluginTestCase):
             "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
-            f'{out_dir}/tmp --extension sam.xz\n',
+            f'{out_dir}/alignments --extension sam.xz\n',
             '# for each one of our input files, form woltka commands, \n',
             '# and farm off to gnu parallel\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
@@ -164,11 +164,6 @@ class WoltkaTests(PluginTestCase):
             '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
             f'--lineage {database}.tax --rank free,none --outcov '
             'coverages/"\n',
-            'done | parallel -j 8\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  # compress it\n',
-            '  echo "xz -1 -T1 ${f}"\n',
             'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
@@ -288,7 +283,7 @@ class WoltkaTests(PluginTestCase):
             "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
-            f'{out_dir}/tmp --extension sam.xz\n',
+            f'{out_dir}/alignments --extension sam.xz\n',
             '# for each one of our input files, form woltka commands, \n',
             '# and farm off to gnu parallel\n',
             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
@@ -298,11 +293,6 @@ class WoltkaTests(PluginTestCase):
             'coverages/"\n',
             f'  echo "woltka classify -i ${{f}} -c {database}.coords '
             '-o ${f}.woltka-per-gene --no-demux"\n',
-            'done | parallel -j 8\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  # compress it\n',
-            '  echo "xz -1 -T1 ${f}"\n',
             'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
