@@ -63,7 +63,7 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        if command.startwith('Woltka v0.1.4'):
+        if command.starstwith('Woltka v0.1.4'):
             html_summary = qclient.get_artifact_html_summary(artifact_id)
             if html_summary is None:
                 raise ValueError(
