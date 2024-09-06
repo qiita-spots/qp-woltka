@@ -246,8 +246,8 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'dbbase={db_folder}',
              f'dbname={db_name}',
              f'output={output}',
-             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`',
-             'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))',
+             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`
+             f'bt2_cores={PPN - 2}',
              bowtie2,
              '# for each one of our input files, form woltka commands, ',
              '# and farm off to gnu parallel',

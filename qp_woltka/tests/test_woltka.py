@@ -147,7 +147,7 @@ class WoltkaTests(PluginTestCase):
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))\n',
+            'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
             '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
             'bowtie2 -p ${bt2_cores} -x '
@@ -279,7 +279,7 @@ class WoltkaTests(PluginTestCase):
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'bt2_cores=$((${SLURM_CPUS_PER_TASK} - 2))\n',
+            'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
             '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
             'bowtie2 -p ${bt2_cores} -x '
