@@ -117,17 +117,25 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     db_name = basename(database_bowtie2)
 
     woltka_merge = f'woltka_merge --base {output}'
+    extra_commands = ''
     if 'length.map' in db_files:
         woltka_merge += f' --length_map {db_files["length.map"]}'
+        extra_commands = (
+            'python -c "from glob import glob; from qp_woltka.util import '
+            "merge_ranges; coverages = glob('coverages/*.cov'); "
+            "open('artifact.cov', 'w').write('\n'.join("
+            'merge_ranges(coverages)))\n'
+            'python -c "from qp_woltka.util import coverage_percentage; '
+            "open('coverage_percentage.txt', 'w').write('\n'.join("
+            "coverage_percentage(['artifact.cov'], '"
+            f'{db_files["length.map"]}' "')))")
 
     ranks = ','.join(["free", "none"])
-    woltka_cmds = []
+    woltka_cmds = [
+        f'woltka classify -i {output}/alignments -o {output}/woltka '
+        f'--no-demux --lineage {db_files["taxonomy"]} --rank {ranks} '
+        '--outcov coverages/']
     if db_files['gene_coordinates']:
-        woltka_cmds.append(
-            f'woltka classify -i {output}/alignments -o {output}/woltka '
-            f'--no-demux -c {db_files["gene_coordinates"]} '
-            f'--lineage {db_files["taxonomy"]} --rank {ranks} '
-            '--outcov coverages/')
         woltka_cmds.append(
             f'woltka classify -i {output}/alignments '
             f'--no-demux -c {db_files["gene_coordinates"]} -o per-gene.biom')
@@ -152,12 +160,6 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             woltka_cmds.append(
                 f'{wcdm} module.biom -m '
                 f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
-    else:
-        woltka_cmds.append(
-            f'woltka classify -i {output}/alignments -o {output}/woltka '
-            f'--no-demux '
-            f'--lineage {db_files["taxonomy"]} --rank {ranks} '
-            '--outcov coverages/')
 
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
@@ -182,7 +184,9 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'if [[ ! -f "errors.log" && $sruns -eq "{n_files + 1}" ]]; then',
              woltka_merge,
              '\n'.join(woltka_cmds),
-             f'cd {output}; tar -cvf alignment.tar *.sam.xz; '
+             f'cd {output};',
+             extra_commands,
+             'tar -cvf alignment.tar *.sam.xz; '
              'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
              'coverages\n'
              'fi',

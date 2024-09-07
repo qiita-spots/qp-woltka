@@ -36,16 +36,6 @@ def merge(base, length_map):
         nfname = search_by_filename(fname, lookup)
         os.rename(f'{aln_fp}/{fname}', f'{aln_fp}/{nfname}.sam.xz')
 
-    # if name == 'free' and length_map is not None:
-    #     coverages = glob_.glob('coverages/*.cov')
-    #     artifact_cov = f'{base}/artifact.cov'
-    #     with open(artifact_cov, 'w') as out:
-    #         out.write('\n'.join(merge_ranges(coverages)))
-    #
-    #     with open(f'{base}/coverage_percentage.txt', 'w') as out:
-    #         out.write('\n'.join(
-    #             coverage_percentage([artifact_cov], length_map)))
-
 
 if __name__ == '__main__':
     merge()

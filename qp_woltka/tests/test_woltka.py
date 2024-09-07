@@ -182,9 +182,10 @@ class WoltkaTests(PluginTestCase):
             f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
             f'--no-demux --lineage {database}.tax '
             '--rank free,none --outcov coverages/\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
-            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
-            'coverages\n',
+            f'cd {out_dir};\n',
+            '\n',
+            'tar -cvf alignment.tar *.sam.xz; tar zcvf coverages.tgz '
+            'coverage_percentage.txt artifact.cov coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -295,11 +296,13 @@ class WoltkaTests(PluginTestCase):
             'if [[ ! -f "errors.log" && $sruns -eq "4" ]]; then\n',
             f'woltka_merge --base {out_dir}\n',
             f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
-            f'--no-demux -c {database}.coords --lineage {database}.tax '
+            f'--no-demux --lineage {database}.tax '
             '--rank free,none --outcov coverages/\n',
             f'woltka classify -i {out_dir}/alignments --no-demux -c '
             f'{database}.coords -o per-gene.biom\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
+            f'cd {out_dir};\n',
+            '\n',
+            'tar -cvf alignment.tar *.sam.xz; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',
             'fi\n',
