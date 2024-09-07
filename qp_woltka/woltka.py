@@ -179,7 +179,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              # reports is equal to the numbers of jobs that started : process
              # the bioms
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
-             f'if [[ ! -f "errors.log" && $sruns -eq "{n_files}" ]]; then',
+             f'if [[ ! -f "errors.log" && $sruns -eq "{n_files + 1}" ]]; then',
              woltka_merge,
              '\n'.join(woltka_cmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz; '

@@ -16,7 +16,7 @@ from qp_woltka.util import (
 @click.command()
 @click.option('--base', type=click.Path(exists=True), required=True)
 @click.option('--length_map', type=click.Path(exists=True), required=False)
-def merge(base, glob, name, rename, length_map):
+def merge(base, length_map):
     aln_fp = f'{base}/alignments'
     cmd = (f'mxdx consolidate-partials --output-base {aln_fp} '
            '--extension sam.xz')
