@@ -123,10 +123,10 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         extra_commands = (
             'python -c "from glob import glob; from qp_woltka.util import '
             "merge_ranges; coverages = glob('coverages/*.cov'); "
-            "open('artifact.cov', 'w').write('\n'.join("
+            "open('artifact.cov', 'w').write('\\n'.join("
             'merge_ranges(coverages)))\n'
             'python -c "from qp_woltka.util import coverage_percentage; '
-            "open('coverage_percentage.txt', 'w').write('\n'.join("
+            "open('coverage_percentage.txt', 'w').write('\\n'.join("
             "coverage_percentage(['artifact.cov'], '"
             f'{db_files["length.map"]}' "')))")
 
