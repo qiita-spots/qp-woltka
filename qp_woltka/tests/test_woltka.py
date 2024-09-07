@@ -146,7 +146,6 @@ class WoltkaTests(PluginTestCase):
             f'dbbase={dirname(database)}\n',
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
-            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
             '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
@@ -157,14 +156,6 @@ class WoltkaTests(PluginTestCase):
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
-            '# for each one of our input files, form woltka commands, \n',
-            '# and farm off to gnu parallel\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none --outcov '
-            'coverages/"\n',
-            'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -174,7 +165,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 2\n',
+            '#SBATCH -n 1\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -186,14 +177,11 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'none --glob "*.woltka-taxa/none.biom" --rename &\n',
-            'wait\n',
-            '\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "3" ]]; then\n',
+            f'woltka_merge --base {out_dir}\n',
+            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
+            f'--no-demux --lineage {database}.tax '
+            '--rank free,none --outcov coverages/\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',
@@ -273,7 +261,6 @@ class WoltkaTests(PluginTestCase):
             f'dbbase={dirname(database)}\n',
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
-            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
             '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
@@ -284,16 +271,6 @@ class WoltkaTests(PluginTestCase):
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
-            '# for each one of our input files, form woltka commands, \n',
-            '# and farm off to gnu parallel\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none --outcov '
-            'coverages/"\n',
-            f'  echo "woltka classify -i ${{f}} -c {database}.coords '
-            '-o ${f}.woltka-per-gene --no-demux"\n',
-            'done | parallel -j 8\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -303,7 +280,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 3\n',
+            '#SBATCH -n 1\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -315,16 +292,13 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'none --glob "*.woltka-taxa/none.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'per-gene --glob "*.woltka-per-gene" --rename &\n',
-            'wait\n',
-            '\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "3" ]]; then\n',
+            f'woltka_merge --base {out_dir}\n',
+            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
+            f'--no-demux -c {database}.coords --lineage {database}.tax '
+            '--rank free,none --outcov coverages/\n',
+            f'woltka classify -i {out_dir}/alignments --no-demux -c '
+            f'{database}.coords -o per-gene.biom\n',
             f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',

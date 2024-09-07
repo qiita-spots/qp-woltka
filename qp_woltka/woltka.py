@@ -116,56 +116,55 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
 
-    ranks = ["free", "none"]
-    # now, let's establish the merge script.
-    merges = []
-    merge_inv = f'woltka_merge --base {output} '
-    fcmds = []
-    for r in ranks:
-        cmd = [merge_inv, f'--name {r}', f'--glob "*.woltka-taxa/{r}.biom"']
-        if r == 'free' and 'length.map' in db_files:
-            cmd.append(f'--length_map {db_files["length.map"]}')
-        cmd.append('&')
-        merges.append(" ".join(cmd))
-    if db_files['gene_coordinates'] is not None:
-        merges.append(" ".join([merge_inv, '--name per-gene',
-                                '--glob "*.woltka-per-gene"',
-                                '--rename &']))  # run all at once
+    woltka_merge = f'woltka_merge --base {output}'
+    if 'length.map' in db_files:
+        woltka_merge += f' --length_map {db_files["length.map"]}'
+
+    ranks = ','.join(["free", "none"])
+    woltka_cmds = []
+    if db_files['gene_coordinates']:
+        woltka_cmds.append(
+            f'woltka classify -i {output}/alignments -o {output}/woltka '
+            f'--no-demux -c {db_files["gene_coordinates"]} '
+            f'--lineage {db_files["taxonomy"]} --rank {ranks} '
+            '--outcov coverages/')
+        woltka_cmds.append(
+            f'woltka classify -i {output}/alignments '
+            f'--no-demux -c {db_files["gene_coordinates"]} -o per-gene.biom')
+
         wcdm = 'woltka tools collapse -i '
         dbfk = db_files['kegg']
         if dbfk["orf-to-ko.map.xz"] is not None:
-            fcmds.append(f'{wcdm} per-gene.biom -m {dbfk["orf-to-ko.map.xz"]} '
-                         '-o ko.biom')
+            woltka_cmds.append(f'{wcdm} per-gene.biom -m '
+                               f'{dbfk["orf-to-ko.map.xz"]} -o ko.biom')
         if dbfk["ko-to-ec.map"] is not None:
-            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-ec.map"]} '
-                         '-o ec.biom')
+            woltka_cmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-ec.map"]} '
+                               '-o ec.biom')
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
                 dbfk["module-to-pathway.map"] is not None:
-            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
-                         '-o reaction.biom')
-            fcmds.append(f'{wcdm} reaction.biom -m '
-                         f'{dbfk["reaction-to-module.map"]} -o module.biom')
-            fcmds.append(f'{wcdm} module.biom -m '
-                         f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
+            woltka_cmds.append(
+                f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
+                '-o reaction.biom')
+            woltka_cmds.append(
+                f'{wcdm} reaction.biom -m '
+                f'{dbfk["reaction-to-module.map"]} -o module.biom')
+            woltka_cmds.append(
+                f'{wcdm} module.biom -m '
+                f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
     else:
-        # for "simplicity" we will inject the `--rename` flag to the last
-        # merge command (between all the parameters and the last &)
-        m = merges[-1].split(' ')
-        merges[-1] = " ".join(m[:-1] + ['--rename'] + [m[-1]])
-
-    # The merge for a HiSeq 2000 lane was 40 seconds and ~150MB of memory.
-    # But, let's over request just in case (and this is a very small request
-    # relative to the rest of the work).
-    n_merges = len(merges)
-    assert n_merges < 32  # 32 merges would be crazy...
+        woltka_cmds.append(
+            f'woltka classify -i {output}/alignments -o {output}/woltka '
+            f'--no-demux '
+            f'--lineage {db_files["taxonomy"]} --rank {ranks} '
+            '--outcov coverages/')
 
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
              f'#SBATCH --job-name merge-{name}',
              '#SBATCH -N 1',
-             f'#SBATCH -n {n_merges}',
+             '#SBATCH -n 1',
              f'#SBATCH --time {MERGE_WALLTIME}',
              f'#SBATCH --mem {MERGE_MEMORY}',
              f'#SBATCH --output {output}/merge-{name}.log',
@@ -180,11 +179,9 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              # reports is equal to the numbers of jobs that started : process
              # the bioms
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
-             'sjobs=`ls sample_details_* | wc -l`',
-             'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then',
-             '\n'.join(merges),
-             "wait",
-             '\n'.join(fcmds),
+             f'if [[ ! -f "errors.log" && $sruns -eq "{n_files}" ]]; then',
+             woltka_merge,
+             '\n'.join(woltka_cmds),
              f'cd {output}; tar -cvf alignment.tar *.sam.xz; '
              'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
              'coverages\n'
@@ -214,11 +211,6 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         '--batch ${SLURM_ARRAY_TASK_ID} '
         f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
         '--extension sam.xz')
-    woltka = 'woltka classify -i ${f} ' + \
-             '-o ${f}.woltka-taxa ' + \
-             '--no-demux ' + \
-             f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)} --outcov coverages/'
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:
@@ -246,20 +238,8 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'dbbase={db_folder}',
              f'dbname={db_name}',
              f'output={output}',
-             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`',
              f'bt2_cores={PPN - 2}',
-             bowtie2,
-             '# for each one of our input files, form woltka commands, ',
-             '# and farm off to gnu parallel',
-             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
-             'do',
-             f'  echo "{woltka}"']
-
-    if db_files['gene_coordinates'] is not None:
-        lines.append('  echo "woltka classify -i ${f} '
-                     f'-c {db_files["gene_coordinates"]} '
-                     '-o ${f}.woltka-per-gene --no-demux"')
-    lines.append('done | parallel -j 8')
+             bowtie2]
 
     lines.append('date')  # end time
 
