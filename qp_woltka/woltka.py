@@ -186,7 +186,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              '\n'.join(woltka_cmds),
              f'cd {output};',
              extra_commands,
-             'tar -cvf alignment.tar *.sam.xz; '
+             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
              'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
              'coverages\n'
              'fi',

@@ -184,8 +184,9 @@ class WoltkaTests(PluginTestCase):
             '--rank free,none --outcov coverages/\n',
             f'cd {out_dir};\n',
             '\n',
-            'tar -cvf alignment.tar *.sam.xz; tar zcvf coverages.tgz '
-            'coverage_percentage.txt artifact.cov coverages\n',
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
+            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
+            'coverages\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -302,7 +303,7 @@ class WoltkaTests(PluginTestCase):
             f'{database}.coords -o per-gene.biom\n',
             f'cd {out_dir};\n',
             '\n',
-            'tar -cvf alignment.tar *.sam.xz; '
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',
             'fi\n',
