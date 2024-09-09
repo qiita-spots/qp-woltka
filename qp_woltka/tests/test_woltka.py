@@ -133,7 +133,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --mem 70g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 0-3%8\n',
@@ -148,13 +148,13 @@ class WoltkaTests(PluginTestCase):
             f'output={out_dir}\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
-            '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 | '
             'bowtie2 -p ${bt2_cores} -x '
             f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
             '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
             "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
-            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 600000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
             'date\n']
         self.assertEqual(main, exp_main)
@@ -250,7 +250,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --mem 70g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 0-3%8\n',
@@ -265,13 +265,13 @@ class WoltkaTests(PluginTestCase):
             f'output={out_dir}\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
-            '${SLURM_ARRAY_TASK_ID} --batch-size 500000 | '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 | '
             'bowtie2 -p ${bt2_cores} -x '
             f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
             '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
             "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
-            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 500000 --output-base '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 600000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
             'date\n']
         self.assertEqual(main, exp_main)
