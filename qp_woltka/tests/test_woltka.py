@@ -194,8 +194,8 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
-        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
+        mkdir(f'{out_dir}/woltka')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
 
@@ -207,7 +207,7 @@ class WoltkaTests(PluginTestCase):
 
         exp = [
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom'),
+                         [(f'{out_dir}/woltka/none.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')])]
         self.assertCountEqual(ainfo, exp)
@@ -313,9 +313,9 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
+        mkdir(f'{out_dir}/woltka')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
         copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
-        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
         success, ainfo, msg = woltka(
@@ -326,7 +326,7 @@ class WoltkaTests(PluginTestCase):
 
         exp = [
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom'),
+                         [(f'{out_dir}/woltka/none.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',

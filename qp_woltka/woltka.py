@@ -288,7 +288,7 @@ def woltka(qclient, job_id, parameters, out_dir):
     errors = []
     ainfo = []
 
-    fp_biom = f'{out_dir}/none.biom'
+    fp_biom = f'{out_dir}/woltka/none.biom'
     fp_alng = f'{out_dir}/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
