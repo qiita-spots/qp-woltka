@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 import os
-# import biom
-# import glob as glob_
-# import h5py
 import click
 import pandas as pd
 

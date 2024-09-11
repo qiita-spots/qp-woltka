@@ -35,7 +35,7 @@ def execute(url, job_id, out_dir):
         # these were defined in qp_woltka/__init.py__ while defining the
         # available commands for this plugin
         valid_commands = [
-            'Woltka v0.1.4, pairends + suppress singleton & discordant',
+            'Woltka v0.1.4, paired-end',
             'SynDNA Woltka', 'Calculate Cell Counts',
             'Calculate RNA Copy Counts']
 

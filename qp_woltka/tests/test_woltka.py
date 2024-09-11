@@ -87,8 +87,7 @@ class WoltkaTests(PluginTestCase):
         data = {'user': 'demo@microbio.me',
                 'command': dumps(
                     ['qp-woltka', '2024.09',
-                     'Woltka v0.1.4, pairends + suppress singleton & '
-                     'discordant']),
+                     'Woltka v0.1.4, paired-end']),
                 'status': 'running',
                 'parameters': dumps(self.params)}
         job_id = self.qclient.post(
