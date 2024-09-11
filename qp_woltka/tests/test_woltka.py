@@ -178,7 +178,7 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq "4" ]]; then\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
             f'woltka_merge --base {out_dir}\n',
             f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
             f'--no-demux --lineage {database}.tax '
@@ -297,7 +297,7 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq "4" ]]; then\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
             f'woltka_merge --base {out_dir}\n',
             f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
             f'--no-demux --lineage {database}.tax '
