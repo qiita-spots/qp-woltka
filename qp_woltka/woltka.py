@@ -206,12 +206,12 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     bowtie2 = (
         f'mxdx mux --file-map {files_list_fp} --batch '
         '${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} | '
+        f'--batch-size {BATCHSIZE} --paired-handling interleave | '
         'bowtie2 -p ${bt2_cores} '
-        f'-x {database_bowtie2} -q - --seed 42 '
+        f'-x {database_bowtie2} --interleaved - --seed 42 '
         '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-        '--score-min "L,0,-0.05" --no-head --no-unal | '
-        "cut -f1-9 | sed 's/$/\t*\t*/' | "
+        '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+        "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
         f'mxdx demux --file-map {files_list_fp} '
         '--batch ${SLURM_ARRAY_TASK_ID} '
         f'--batch-size {BATCHSIZE} --output-base {output}/alignments '

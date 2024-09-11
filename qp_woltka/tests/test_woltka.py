@@ -148,11 +148,13 @@ class WoltkaTests(PluginTestCase):
             f'output={out_dir}\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
-            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 | '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 '
+            '--paired-handling interleave | '
             'bowtie2 -p ${bt2_cores} -x '
-            f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
-            '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
-            "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'{database} --interleaved - --seed 42 --very-sensitive -k 16 '
+            '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 600000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
@@ -265,11 +267,13 @@ class WoltkaTests(PluginTestCase):
             f'output={out_dir}\n',
             'bt2_cores=6\n',
             f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
-            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 | '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 600000 '
+            '--paired-handling interleave | '
             'bowtie2 -p ${bt2_cores} -x '
-            f'{database} -q - --seed 42 --very-sensitive -k 16 --np 1 --mp '
-            '"1,1" --rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" --no-head '
-            "--no-unal | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'{database} --interleaved - --seed 42 --very-sensitive -k 16 '
+            '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
             f'--file-map {out_dir}/files_list.tsv '
             '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 600000 --output-base '
             f'{out_dir}/alignments --extension sam.xz\n',
