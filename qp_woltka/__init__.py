@@ -27,7 +27,6 @@ opt_params = {
     }
 outputs = {
     # taxonomic
-    'Alignment Profile': 'BIOM',
     'Per genome Predictions': 'BIOM',
     'Per gene Predictions': 'BIOM',
     # functional
@@ -37,7 +36,8 @@ outputs = {
     }
 dflt_param_set = generate_woltka_dflt_params()
 woltka_cmd = QiitaCommand(
-    'Woltka v0.1.4', "Functional and Taxonomic Predictions", woltka,
+    'Woltka v0.1.6, paired-end',
+    "Functional and Taxonomic Predictions", woltka,
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(woltka_cmd)
 

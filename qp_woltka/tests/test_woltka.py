@@ -59,18 +59,21 @@ class WoltkaTests(PluginTestCase):
         fp1_2 = join(in_dir, 'S22205_S104_L001_R2_001.fastq.gz')
         fp2_1 = join(in_dir, 'S22282_S102_L001_R1_001.fastq.gz')
         fp2_2 = join(in_dir, 'S22282_S102_L001_R2_001.fastq.gz')
+        fp_summary = join(in_dir, 'summary.html')
         source_dir = 'qp_woltka/support_files'
         copyfile(f'{source_dir}/S22205_S104_L001_R1_001.fastq.gz', fp1_1)
         copyfile(f'{source_dir}/S22205_S104_L001_R2_001.fastq.gz', fp1_2)
         copyfile(f'{source_dir}/S22282_S102_L001_R1_001.fastq.gz', fp2_1)
         copyfile(f'{source_dir}/S22282_S102_L001_R2_001.fastq.gz', fp2_2)
+        copyfile(f'{source_dir}/summary.html', fp_summary)
 
         data = {
             'filepaths': dumps([
                 (fp1_1, 'raw_forward_seqs'),
                 (fp1_2, 'raw_reverse_seqs'),
                 (fp2_1, 'raw_forward_seqs'),
-                (fp2_2, 'raw_reverse_seqs')]),
+                (fp2_2, 'raw_reverse_seqs'),
+                (fp_summary, 'html_summary')]),
             'type': "per_sample_FASTQ",
             'name': "Test Woltka artifact",
             'prep': pid}
@@ -82,7 +85,9 @@ class WoltkaTests(PluginTestCase):
             self.params['Database'] = database
 
         data = {'user': 'demo@microbio.me',
-                'command': dumps(['qp-woltka', '2023.11', 'Woltka v0.1.4']),
+                'command': dumps(
+                    ['qp-woltka', '2024.09',
+                     'Woltka v0.1.6, paired-end']),
                 'status': 'running',
                 'parameters': dumps(self.params)}
         job_id = self.qclient.post(
@@ -101,6 +106,8 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         files, prep = self.qclient.artifact_and_preparation_files(aid)
+        html_summary = self.qclient.get_artifact_html_summary(aid)
+        files['html_summary'] = html_summary
 
         url = 'this-is-my-url'
         database = self.params['Database']
@@ -120,14 +127,15 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --mem 70g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-1%8\n',
+            '#SBATCH --array 0-0%8\n',
             f'cd {out_dir}\n',
             f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
@@ -137,27 +145,18 @@ class WoltkaTests(PluginTestCase):
             f'dbbase={dirname(database)}\n',
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
-            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'mux ${files} | bowtie2 -p 8 -x '
-            f'{database} -q - --seed 42 '
-            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
-            'sed \'s/$/\t*\t*/\' | demux ${output} '
-            f'{prep_file} | sort | uniq > '
-            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
-            '# for each one of our input files, form woltka commands, \n',
-            '# and farm off to gnu parallel\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none --outcov '
-            'coverages/"\n',
-            'done | parallel -j 8\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  # compress it\n',
-            '  echo "xz -1 -T1 ${f}"\n',
-            'done | parallel -j 8\n',
+            'bt2_cores=6\n',
+            f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 50000000 '
+            '--paired-handling interleave | '
+            'bowtie2 -p ${bt2_cores} -x '
+            f'{database} --interleaved - --seed 42 --very-sensitive -k 16 '
+            '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'--file-map {out_dir}/files_list.tsv '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 50000000 '
+            f'--output-base {out_dir}/alignments --extension sam.xz\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -167,7 +166,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 2\n',
+            '#SBATCH -n 1\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -179,15 +178,14 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'none --glob "*.woltka-taxa/none.biom" --rename &\n',
-            'wait\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
+            f'woltka_merge --base {out_dir}\n',
+            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
+            f'--no-demux --lineage {database}.tax '
+            '--rank free,none --outcov coverages/\n',
+            f'cd {out_dir};\n',
             '\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',
             'fi\n',
@@ -197,8 +195,8 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
-        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
+        mkdir(f'{out_dir}/woltka')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
 
@@ -209,13 +207,9 @@ class WoltkaTests(PluginTestCase):
         self.assertTrue(success)
 
         exp = [
-            ArtifactInfo('Alignment Profile', 'BIOM',
-                         [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/alignment/coverages.tgz',
-                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom'),
+                         [(f'{out_dir}/woltka/none.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')])]
         self.assertCountEqual(ainfo, exp)
 
@@ -232,6 +226,8 @@ class WoltkaTests(PluginTestCase):
         self._clean_up_files.append(out_dir)
 
         files, prep = self.qclient.artifact_and_preparation_files(aid)
+        html_summary = self.qclient.get_artifact_html_summary(aid)
+        files['html_summary'] = html_summary
 
         url = 'this-is-my-url'
         main_fp, merge_fp = woltka_to_array(
@@ -250,14 +246,15 @@ class WoltkaTests(PluginTestCase):
             '#!/bin/bash\n',
             '#SBATCH -p qiita\n',
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
+            '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND\n',
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 90g\n',
+            '#SBATCH --mem 70g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
-            '#SBATCH --array 1-1%8\n',
+            '#SBATCH --array 0-0%8\n',
             f'cd {out_dir}\n',
             f'prep_full_path={prep_file}\n',
             f'{self.environment}\n',
@@ -267,29 +264,18 @@ class WoltkaTests(PluginTestCase):
             f'dbbase={dirname(database)}\n',
             f'dbname={basename(database)}\n',
             f'output={out_dir}\n',
-            'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`\n',
-            'mux ${files} | bowtie2 -p 8 -x '
-            f'{database} -q - --seed 42 '
-            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-            '--score-min "L,0,-0.05" --no-head --no-unal | cut -f1-9 | '
-            'sed \'s/$/\t*\t*/\' | demux ${output} '
-            f'{prep_file} | sort | uniq > '
-            'sample_processing_${SLURM_ARRAY_TASK_ID}.log\n',
-            '# for each one of our input files, form woltka commands, \n',
-            '# and farm off to gnu parallel\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  echo "woltka classify -i ${f} -o ${f}.woltka-taxa --no-demux '
-            f'--lineage {database}.tax --rank free,none --outcov '
-            'coverages/"\n',
-            f'  echo "woltka classify -i ${{f}} -c {database}.coords '
-            '-o ${f}.woltka-per-gene --no-demux"\n',
-            'done | parallel -j 8\n',
-            'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`\n',
-            'do\n',
-            '  # compress it\n',
-            '  echo "xz -1 -T1 ${f}"\n',
-            'done | parallel -j 8\n',
+            'bt2_cores=6\n',
+            f'mxdx mux --file-map {out_dir}/files_list.tsv --batch '
+            '${SLURM_ARRAY_TASK_ID} --batch-size 50000000 '
+            '--paired-handling interleave | '
+            'bowtie2 -p ${bt2_cores} -x '
+            f'{database} --interleaved - --seed 42 --very-sensitive -k 16 '
+            '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed \'s/$/\t*\t*/' | mxdx demux "
+            f'--file-map {out_dir}/files_list.tsv '
+            '--batch ${SLURM_ARRAY_TASK_ID} --batch-size 50000000 '
+            f'--output-base {out_dir}/alignments --extension sam.xz\n',
             'date\n']
         self.assertEqual(main, exp_main)
 
@@ -299,7 +285,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 3\n',
+            '#SBATCH -n 1\n',
             '#SBATCH --time 30:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
@@ -311,17 +297,16 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
-            "sjobs=`ls sample_details_* | wc -l`\n",
-            'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'free --glob "*.woltka-taxa/free.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'none --glob "*.woltka-taxa/none.biom" &\n',
-            f'woltka_merge --base {out_dir}  --name '
-            'per-gene --glob "*.woltka-per-gene" --rename &\n',
-            'wait\n',
+            'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
+            f'woltka_merge --base {out_dir}\n',
+            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
+            f'--no-demux --lineage {database}.tax '
+            '--rank free,none --outcov coverages/\n',
+            f'woltka classify -i {out_dir}/alignments --no-demux -c '
+            f'{database}.coords -o per-gene.biom\n',
+            f'cd {out_dir};\n',
             '\n',
-            f'cd {out_dir}; tar -cvf alignment.tar *.sam.xz; '
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
             'coverages\n',
             'fi\n',
@@ -331,9 +316,9 @@ class WoltkaTests(PluginTestCase):
 
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
+        mkdir(f'{out_dir}/woltka')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
         copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
-        copyfile(f'{sdir}/free.biom', f'{out_dir}/free.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
         success, ainfo, msg = woltka(
@@ -343,13 +328,9 @@ class WoltkaTests(PluginTestCase):
         self.assertTrue(success)
 
         exp = [
-            ArtifactInfo('Alignment Profile', 'BIOM',
-                         [(f'{out_dir}/free.biom', 'biom'),
-                          (f'{out_dir}/alignment.tar', 'log'),
-                          (f'{out_dir}/alignment/coverages.tgz',
-                           'plain_text')]),
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/none.biom', 'biom'),
+                         [(f'{out_dir}/woltka/none.biom', 'biom'),
+                          (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
                          [(f'{out_dir}/per-gene.biom', 'biom'),
@@ -373,8 +354,6 @@ class WoltkaTests(PluginTestCase):
             self.qclient, job_id, self.params, out_dir)
 
         exp_msg = '\n'.join([
-            'Missing files from the "Alignment Profile"; please contact '
-            'qiita.help@gmail.com for more information',
             'Table none/per-genome was not created, please contact '
             'qiita.help@gmail.com for more information',
             'Table per-gene was not created, please contact '

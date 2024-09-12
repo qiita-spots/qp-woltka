@@ -9,13 +9,9 @@
 from unittest import main, TestCase
 from os import environ
 from os.path import join
-from tempfile import TemporaryDirectory
-import gzip
-import io
-import pandas as pd
 
 from qp_woltka.util import (
-    get_dbs, generate_woltka_dflt_params, mux, demux, search_by_filename,
+    get_dbs, generate_woltka_dflt_params, search_by_filename,
     merge_ranges, coverage_percentage)
 
 
@@ -37,41 +33,6 @@ class UtilTests(TestCase):
                'rep82': {'Database': join(self.db_path, 'rep82', '5min')}}
 
         self.assertDictEqual(obs, exp)
-
-    def test_mux(self):
-        f1 = b"@foo\nATGC\n+\nIIII\n"
-        f2 = b"@bar\nAAAA\n+\nIIII\n"
-        exp = b"@foo@@@foofile\nATGC\n+\nIIII\n@bar@@@barfile\nAAAA\n+\nIIII\n"
-        with TemporaryDirectory() as d:
-            f1fp = join(d, 'foofile.fastq')
-            f2fp = join(d, 'barfile.fastq')
-            ofp = join(d, 'output')
-            with gzip.open(f1fp, 'wb') as fp:
-                fp.write(f1)
-            with gzip.open(f2fp, 'wb') as fp:
-                fp.write(f2)
-            with open(ofp, 'wb') as output:
-                mux([f1fp, f2fp], output)
-            with open(ofp, 'rb') as result:
-                obs = result.read()
-
-        self.assertEqual(obs, exp)
-
-    def test_demux(self):
-        prep = pd.DataFrame([['sample_foo', 'foofile'],
-                             ['sample_bar', 'barfile']],
-                            columns=['sample_name', 'run_prefix'])
-        input_ = io.BytesIO(b"foo@@@foofile_R1\tATGC\t+\tIIII\nbar@@@"
-                            b"barfile_R2\tAAAA\t+\tIIII\n")
-        expfoo = b"foo\tATGC\t+\tIIII\n"
-        expbar = b"bar\tAAAA\t+\tIIII\n"
-        with TemporaryDirectory() as d:
-            demux(input_, d.encode('ascii'), prep)
-            foo = open(join(d, 'sample_foo.sam'), 'rb').read()
-            bar = open(join(d, 'sample_bar.sam'), 'rb').read()
-
-        self.assertEqual(foo, expfoo)
-        self.assertEqual(bar, expbar)
 
     def test_search_by_filename(self):
         lookup = {'foo_bar': 'baz',

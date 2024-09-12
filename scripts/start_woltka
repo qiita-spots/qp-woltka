@@ -35,7 +35,8 @@ def execute(url, job_id, out_dir):
         # these were defined in qp_woltka/__init.py__ while defining the
         # available commands for this plugin
         valid_commands = [
-            'Woltka v0.1.4', 'SynDNA Woltka', 'Calculate Cell Counts',
+            'Woltka v0.1.6, paired-end',
+            'SynDNA Woltka', 'Calculate Cell Counts',
             'Calculate RNA Copy Counts']
 
         # this if/elif is the current solution for
@@ -62,7 +63,14 @@ def execute(url, job_id, out_dir):
         else:
             directory = directory.pop()
 
-        if command == 'Woltka v0.1.4':
+        if command.startswith('Woltka v0.1.6'):
+            html_summary = qclient.get_artifact_html_summary(artifact_id)
+            if html_summary is None:
+                raise ValueError(
+                    f'`{command}` relies on the artifact html_summary and '
+                    f'artifact: {artifact_id} does not have one. Please send '
+                    'this message to the help acount.')
+            files['html_summary'] = html_summary
             main_fp, merge_fp = woltka_to_array(
                 files, out_dir, parameters['Database'], prep, url, job_id)
         else:

@@ -11,7 +11,7 @@
 from setuptools import setup
 
 
-__version__ = "2023.11"
+__version__ = "2024.09"
 
 
 classes = """
@@ -48,15 +48,16 @@ setup(name='qp-woltka',
             'support_files/*',
             'databases/*']},
       scripts=['scripts/configure_woltka', 'scripts/start_woltka',
-               'scripts/finish_woltka', 'scripts/woltka_merge',
-               'scripts/demux', 'scripts/mux'],
+               'scripts/finish_woltka', 'scripts/woltka_merge'],
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
-                        'h5py >= 2.3.1', 'biom-format',
-                        # forcing 0.1.4 because Qiita uses this version
-                        'woltka @ https://github.com/'
-                        'qiyunzhu/woltka/archive/refs/tags/v0.1.4.zip',
+                        'h5py >= 2.3.1', 'biom-format', 'lxml',
+                        # forcing 0.1.6 because Qiita uses this version
+                        'polars-lts-cpu', 'woltka @ https://github.com/'
+                        'qiyunzhu/woltka/archive/refs/tags/v0.1.6.zip',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
-                        'pysyndna/archive/refs/heads/main.zip'],
+                        'pysyndna/archive/refs/heads/main.zip',
+                        'mxdx @ https://github.com/wasade/mxdx/archive/'
+                        'refs/heads/main.zip'],
       classifiers=classifiers
       )

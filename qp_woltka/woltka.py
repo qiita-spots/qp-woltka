@@ -21,16 +21,19 @@ from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
 from qp_woltka.util import search_by_filename
 
 from qiita_client import ArtifactInfo
+from qiita_client.util import system_call
 
 # resources per job
 PPN = 8
 MAX_RUNNING = 8
 TASKS_IN_SCRIPT = 10
 
-MEMORY = '90g'
+MEMORY = '70g'
 LARGE_MEMORY = '150g'
 MERGE_MEMORY = '140g'
 SYNDNA_MEMORY = '190g'
+# setting so an iSeq run, generates 2 jobs
+BATCHSIZE = 50000000
 
 WALLTIME = '40:00:00'
 MERGE_WALLTIME = '30:00:00'
@@ -77,69 +80,94 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     """
     environment = environ["ENVIRONMENT"]
 
+    # processing html_summary
+    html_summary = files.pop('html_summary')
+    df = pd.read_html(html_summary)[0]
+    dname = dirname(html_summary)
+    fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
+        lambda x: (x.filename.rsplit('_R1')[0],
+                   (x.filename, x.reads)), axis=1).values)
+    rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+        lambda x: (x.filename.rsplit('_R2')[0],
+                   (x.filename, x.reads)), axis=1).values)
+    lines = ['filename_1\trecord_count']
+    if rev:
+        lines = ['filename_1\tfilename_2\trecord_count']
+    for k, (fn, reads) in fwd.items():
+        line = f'{dname}/{fn}\t'
+        if k in rev:
+            rfn = rev.pop(k)[0]
+            line += f'{dname}/{rfn}\t'
+        line += f'{reads}'
+        lines.append(line)
+    files_list_fp = f'{output}/files_list.tsv'
+    with open(files_list_fp, 'w') as fp:
+        fp.write('\n'.join(lines))
+
+    cmd = (f'mxdx get-max-batch-number --file-map {files_list_fp} '
+           f'--batch-size {BATCHSIZE}')
+    n_files, stderr, return_value = system_call(cmd)
+    if return_value != 0 or stderr:
+        raise ValueError('`mxdx get-max-batch-number` failed '
+                         f'{return_value}: {stderr}')
+    # just making sure that n_files is an int
+    n_files = int(n_files)
+
     db_files = _process_database_files(database_bowtie2)
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
 
-    n_files = 1
-    for i, (k, (f, r)) in enumerate(files.items()):
-        if i >= n_files*TASKS_IN_SCRIPT:
-            n_files += 1
-        with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
-            fh.write(f'{f["filepath"]}\n')
-            if r is not None:
-                fh.write(f'{r["filepath"]}\n')
+    woltka_merge = f'woltka_merge --base {output}'
+    extra_commands = ''
+    if 'length.map' in db_files:
+        woltka_merge += f' --length_map {db_files["length.map"]}'
+        extra_commands = (
+            'python -c "from glob import glob; from qp_woltka.util import '
+            "merge_ranges; coverages = glob('coverages/*.cov'); "
+            "open('artifact.cov', 'w').write('\\n'.join("
+            'merge_ranges(coverages)))"\n'
+            'python -c "from qp_woltka.util import coverage_percentage; '
+            "open('coverage_percentage.txt', 'w').write('\\n'.join("
+            "coverage_percentage(['artifact.cov'], '"
+            f'{db_files["length.map"]}' "')))\"")
 
-    ranks = ["free", "none"]
-    # now, let's establish the merge script.
-    merges = []
-    merge_inv = f'woltka_merge --base {output} '
-    fcmds = []
-    for r in ranks:
-        cmd = [merge_inv, f'--name {r}', f'--glob "*.woltka-taxa/{r}.biom"']
-        if r == 'free' and 'length.map' in db_files:
-            cmd.append(f'--length_map {db_files["length.map"]}')
-        cmd.append('&')
-        merges.append(" ".join(cmd))
-    if db_files['gene_coordinates'] is not None:
-        merges.append(" ".join([merge_inv, '--name per-gene',
-                                '--glob "*.woltka-per-gene"',
-                                '--rename &']))  # run all at once
+    ranks = ','.join(["free", "none"])
+    woltka_cmds = [
+        f'woltka classify -i {output}/alignments -o {output}/woltka '
+        f'--no-demux --lineage {db_files["taxonomy"]} --rank {ranks} '
+        '--outcov coverages/']
+    if db_files['gene_coordinates']:
+        woltka_cmds.append(
+            f'woltka classify -i {output}/alignments '
+            f'--no-demux -c {db_files["gene_coordinates"]} -o per-gene.biom')
+
         wcdm = 'woltka tools collapse -i '
         dbfk = db_files['kegg']
         if dbfk["orf-to-ko.map.xz"] is not None:
-            fcmds.append(f'{wcdm} per-gene.biom -m {dbfk["orf-to-ko.map.xz"]} '
-                         '-o ko.biom')
+            woltka_cmds.append(f'{wcdm} per-gene.biom -m '
+                               f'{dbfk["orf-to-ko.map.xz"]} -o ko.biom')
         if dbfk["ko-to-ec.map"] is not None:
-            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-ec.map"]} '
-                         '-o ec.biom')
+            woltka_cmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-ec.map"]} '
+                               '-o ec.biom')
         if dbfk["ko-to-reaction.map"] is not None and \
                 dbfk["reaction-to-module.map"] is not None and \
                 dbfk["module-to-pathway.map"] is not None:
-            fcmds.append(f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
-                         '-o reaction.biom')
-            fcmds.append(f'{wcdm} reaction.biom -m '
-                         f'{dbfk["reaction-to-module.map"]} -o module.biom')
-            fcmds.append(f'{wcdm} module.biom -m '
-                         f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
-    else:
-        # for "simplicity" we will inject the `--rename` flag to the last
-        # merge command (between all the parameters and the last &)
-        m = merges[-1].split(' ')
-        merges[-1] = " ".join(m[:-1] + ['--rename'] + [m[-1]])
-
-    # The merge for a HiSeq 2000 lane was 40 seconds and ~150MB of memory.
-    # But, let's over request just in case (and this is a very small request
-    # relative to the rest of the work).
-    n_merges = len(merges)
-    assert n_merges < 32  # 32 merges would be crazy...
+            woltka_cmds.append(
+                f'{wcdm} ko.biom -m {dbfk["ko-to-reaction.map"]} '
+                '-o reaction.biom')
+            woltka_cmds.append(
+                f'{wcdm} reaction.biom -m '
+                f'{dbfk["reaction-to-module.map"]} -o module.biom')
+            woltka_cmds.append(
+                f'{wcdm} module.biom -m '
+                f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
 
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
              f'#SBATCH --job-name merge-{name}',
              '#SBATCH -N 1',
-             f'#SBATCH -n {n_merges}',
+             '#SBATCH -n 1',
              f'#SBATCH --time {MERGE_WALLTIME}',
              f'#SBATCH --mem {MERGE_MEMORY}',
              f'#SBATCH --output {output}/merge-{name}.log',
@@ -154,12 +182,12 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              # reports is equal to the numbers of jobs that started : process
              # the bioms
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
-             'sjobs=`ls sample_details_* | wc -l`',
-             'if [[ ! -f "errors.log" && $sruns -eq $sjobs ]]; then',
-             '\n'.join(merges),
-             "wait",
-             '\n'.join(fcmds),
-             f'cd {output}; tar -cvf alignment.tar *.sam.xz; '
+             f'if [[ ! -f "errors.log" && $sruns -eq "{n_files + 1}" ]]; then',
+             woltka_merge,
+             '\n'.join(woltka_cmds),
+             f'cd {output};',
+             extra_commands,
+             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
              'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
              'coverages\n'
              'fi',
@@ -175,20 +203,19 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     # https://github.com/BenLangmead/bowtie2/issues/311
     preparation_information = join(output, 'prep_info.tsv')
     prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
-    bowtie2 = 'mux ${files} | ' + \
-              f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
-              '-q - --seed 42 ' + \
-              '--very-sensitive -k 16 --np 1 --mp "1,1" ' + \
-              '--rdg "0,1" --rfg "0,1" --score-min ' + \
-              '"L,0,-0.05" --no-head --no-unal' + \
-              " | cut -f1-9 | sed 's/$/\t*\t*/'" + \
-              ' | demux ${output} ' + preparation_information + \
-              ' | sort | uniq > sample_processing_${SLURM_ARRAY_TASK_ID}.log'
-    woltka = 'woltka classify -i ${f} ' + \
-             '-o ${f}.woltka-taxa ' + \
-             '--no-demux ' + \
-             f'--lineage {db_files["taxonomy"]} ' + \
-             f'--rank {",".join(ranks)} --outcov coverages/'
+    bowtie2 = (
+        f'mxdx mux --file-map {files_list_fp} --batch '
+        '${SLURM_ARRAY_TASK_ID} '
+        f'--batch-size {BATCHSIZE} --paired-handling interleave | '
+        'bowtie2 -p ${bt2_cores} '
+        f'-x {database_bowtie2} --interleaved - --seed 42 '
+        '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+        '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+        "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
+        f'mxdx demux --file-map {files_list_fp} '
+        '--batch ${SLURM_ARRAY_TASK_ID} '
+        f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
+        '--extension sam.xz')
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:
@@ -198,6 +225,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
+             '#SBATCH --mail-type=FAIL,TIME_LIMIT_80,INVALID_DEPEND',
              f'#SBATCH --job-name {name}',
              '#SBATCH -N 1',
              f'#SBATCH -n {PPN}',
@@ -205,7 +233,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --mem {memory}',
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
-             f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
+             f'#SBATCH --array 0-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
              f'prep_full_path={preparation_information}',
              f'{environment}',
@@ -215,27 +243,8 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'dbbase={db_folder}',
              f'dbname={db_name}',
              f'output={output}',
-             'files=`cat sample_details_${SLURM_ARRAY_TASK_ID}.txt`',
-             bowtie2,
-             '# for each one of our input files, form woltka commands, ',
-             '# and farm off to gnu parallel',
-             'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
-             'do',
-             f'  echo "{woltka}"']
-
-    if db_files['gene_coordinates'] is not None:
-        lines.append('  echo "woltka classify -i ${f} '
-                     f'-c {db_files["gene_coordinates"]} '
-                     '-o ${f}.woltka-per-gene --no-demux"')
-    lines.append('done | parallel -j 8')
-
-    # finally, compress each one of our sam files
-    lines.extend([
-        'for f in `cat sample_processing_${SLURM_ARRAY_TASK_ID}.log`',
-        'do',
-        '  # compress it',
-        '  echo "xz -1 -T1 ${f}"',
-        'done | parallel -j 8'])
+             f'bt2_cores={PPN - 2}',
+             bowtie2]
 
     lines.append('date')  # end time
 
@@ -279,21 +288,12 @@ def woltka(qclient, job_id, parameters, out_dir):
 
     errors = []
     ainfo = []
-    fp_biom = f'{out_dir}/free.biom'
+
+    fp_biom = f'{out_dir}/woltka/none.biom'
     fp_alng = f'{out_dir}/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
-        ainfo = [ArtifactInfo('Alignment Profile', 'BIOM', [
-            (fp_biom, 'biom'), (fp_alng, 'log'),
-            (_coverage_copy(f'{out_dir}/alignment/'), 'plain_text')])]
-    else:
-        ainfo = []
-        errors.append('Missing files from the "Alignment Profile"; please '
-                      'contact qiita.help@gmail.com for more information')
-
-    fp_biom = f'{out_dir}/none.biom'
-    if exists(fp_biom):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
-            (fp_biom, 'biom'),
+            (fp_biom, 'biom'), (fp_alng, 'log'),
             (_coverage_copy(f'{out_dir}/none/'), 'plain_text')]))
     else:
         errors.append('Table none/per-genome was not created, please contact '
