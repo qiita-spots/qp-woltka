@@ -3,6 +3,9 @@
 import os
 import click
 import pandas as pd
+import biom as _biom
+from glob import glob
+import h5py
 
 from qiita_client.util import system_call
 from qp_woltka.util import (
@@ -10,10 +13,15 @@ from qp_woltka.util import (
     search_by_filename)
 
 
+@click.group()
+def cli():
+    pass
+
+
 @click.command()
 @click.option('--base', type=click.Path(exists=True), required=True)
 @click.option('--length_map', type=click.Path(exists=True), required=False)
-def merge(base, length_map):
+def mxdx(base, length_map):
     aln_fp = f'{base}/alignments'
     cmd = (f'mxdx consolidate-partials --output-base {aln_fp} '
            '--extension sam.xz')
@@ -34,5 +42,49 @@ def merge(base, length_map):
         os.rename(f'{aln_fp}/{fname}', f'{aln_fp}/{nfname}.sam.xz')
 
 
+@click.command()
+@click.option('--base', type=click.Path(exists=True), required=True)
+def biom(base):
+    # this is the size that was used in the tests that kept a small ~2.5G
+    # memory footprint
+    chunk_size = 30
+    for rank in ('free.biom', 'none.biom'):
+        tables = glob(f'{base}/bioms/*/{rank}')
+
+        full = None
+        for block in range(0, len(tables), chunk_size):
+            chunk = tables[block:block + chunk_size]
+            loaded = []
+            for c in chunk:
+                skip = True
+                if _biom.util.is_hdf5_file(c):
+                    skip = False
+                else:
+                    with open(c) as fh:
+                        for i, l in enumerate(fh):
+                            if i >= 1 and l:
+                                skip = False
+                                break
+                if not skip:
+                    temp = _biom.load_table(c)
+                    if temp.shape != (0, 0):
+                        loaded.append(temp)
+
+            if full is None:
+                if len(loaded) == 1:
+                    full = loaded[0]
+                else:
+                    full = loaded[0].concat(loaded[1:])
+            else:
+                full = full.concat(loaded)
+
+        with h5py.File(f'{base}/{rank}', 'w') as out:
+            full.to_hdf5(out, 'fast-merge')
+
+
+cli.add_command(mxdx)
+cli.add_command(biom)
+
+
 if __name__ == '__main__':
-    merge()
+    cli()

@@ -117,7 +117,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     db_folder = dirname(database_bowtie2)
     db_name = basename(database_bowtie2)
 
-    woltka_merge = f'woltka_merge --base {output}'
+    woltka_merge = f'woltka_merge mxdx --base {output}'
     extra_commands = ''
     if 'length.map' in db_files:
         woltka_merge += f' --length_map {db_files["length.map"]}'
