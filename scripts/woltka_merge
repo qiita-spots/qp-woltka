@@ -48,8 +48,11 @@ def biom(base):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
     chunk_size = 30
-    for rank in ('free.biom', 'none.biom'):
+    for rank in ('free.biom', 'none.biom', 'per-gene.biom'):
         tables = glob(f'{base}/bioms/*/{rank}')
+
+        if not tables:
+            continue
 
         full = None
         for block in range(0, len(tables), chunk_size):
