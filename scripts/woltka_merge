@@ -48,7 +48,7 @@ def biom(base):
     # this is the size that was used in the tests that kept a small ~2.5G
     # memory footprint
     chunk_size = 30
-    for rank in ('free.biom', 'none.biom', 'per-gene.biom'):
+    for rank in ('none.biom', 'per-gene.biom'):
         tables = glob(f'{base}/bioms/*/{rank}')
 
         if not tables:
@@ -81,8 +81,8 @@ def biom(base):
             else:
                 full = full.concat(loaded)
 
-        with h5py.File(f'{base}/{rank}', 'w') as out:
-            full.to_hdf5(out, 'fast-merge')
+            with h5py.File(f'{base}/{rank}', 'w') as out:
+                full.to_hdf5(out, 'fast-merge')
 
 
 cli.add_command(mxdx)

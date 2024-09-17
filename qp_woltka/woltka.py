@@ -36,7 +36,7 @@ SYNDNA_MEMORY = '190g'
 BATCHSIZE = 50000000
 
 WALLTIME = '40:00:00'
-MERGE_WALLTIME = '30:00:00'
+MERGE_WALLTIME = '20:00:00'
 SYNDNA_WALLTIME = '8:00:00'
 
 
@@ -131,15 +131,25 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             "coverage_percentage(['artifact.cov'], '"
             f'{db_files["length.map"]}' "')))\"")
 
-    ranks = ','.join(["free", "none"])
+    ranks = ','.join(["none"])
     woltka_cmds = [
-        f'woltka classify -i {output}/alignments -o {output}/woltka '
-        f'--no-demux --lineage {db_files["taxonomy"]} --rank {ranks} '
-        '--outcov coverages/']
+        # creating the output folder
+        f'mkdir -p {output}/bioms',
+        # executing the parallel classify
+        f'for f in `ls {output}/alignments/*.sam.xz`; '
+        'do bname=`basename ${f/.sam.xz/}`; echo woltka classify -i $f '
+        f'-o {output}/bioms/' '${bname} --no-demux --lineage '
+        f'{db_files["taxonomy"]} --rank {ranks} --outcov {output}/coverages/; '
+        'done | parallel -j 12']
+
     if db_files['gene_coordinates']:
         woltka_cmds.append(
-            f'woltka classify -i {output}/alignments '
-            f'--no-demux -c {db_files["gene_coordinates"]} -o per-gene.biom')
+            f'for f in `ls {output}/alignments/*.sam.xz`; '
+            'do bname=`basename ${f/.sam.xz/}`; echo woltka classify -i $f '
+            f'-o {output}/'
+            'bioms/${bname}/per-gene.biom --no-demux -c '
+            f'{db_files["gene_coordinates"]}; done | parallel -j 12')
+        woltka_cmds.append(f'woltka_merge biom --base {output}')
 
         wcdm = 'woltka tools collapse -i '
         dbfk = db_files['kegg']
@@ -161,13 +171,15 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             woltka_cmds.append(
                 f'{wcdm} module.biom -m '
                 f'{dbfk["module-to-pathway.map"]} -o pathway.biom')
+    else:
+        woltka_cmds.append(f'woltka_merge biom --base {output}')
 
     lines = ['#!/bin/bash',
              '#SBATCH -p qiita',
              '#SBATCH --mail-user "qiita.help@gmail.com"',
              f'#SBATCH --job-name merge-{name}',
              '#SBATCH -N 1',
-             '#SBATCH -n 1',
+             '#SBATCH -n 12',
              f'#SBATCH --time {MERGE_WALLTIME}',
              f'#SBATCH --mem {MERGE_MEMORY}',
              f'#SBATCH --output {output}/merge-{name}.log',
@@ -289,7 +301,7 @@ def woltka(qclient, job_id, parameters, out_dir):
     errors = []
     ainfo = []
 
-    fp_biom = f'{out_dir}/woltka/none.biom'
+    fp_biom = f'{out_dir}/none.biom'
     fp_alng = f'{out_dir}/alignment.tar'
     if exists(fp_biom) and exists(fp_alng):
         ainfo.append(ArtifactInfo('Per genome Predictions', 'BIOM', [
