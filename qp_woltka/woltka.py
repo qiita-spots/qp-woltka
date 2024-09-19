@@ -131,24 +131,28 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             "coverage_percentage(['artifact.cov'], '"
             f'{db_files["length.map"]}' "')))\"")
 
-    ranks = ','.join(["none"])
     woltka_cmds = [
         # creating the output folder
         f'mkdir -p {output}/bioms',
         # executing the parallel classify
         f'for f in `ls {output}/alignments/*.sam.xz`; '
-        'do bname=`basename ${f/.sam.xz/}`; echo woltka classify -i $f '
-        f'-o {output}/bioms/' '${bname} --no-demux --lineage '
-        f'{db_files["taxonomy"]} --rank {ranks} --outcov {output}/coverages/; '
-        'done | parallel -j 12']
+        'do bname=`basename ${f/.sam.xz/}`; '
+        f'mkdir -p {output}/bioms/' '${bname}; echo woltka classify -i $f '
+        f'-o {output}/bioms/' '${bname}/none.biom --no-demux --lineage '
+        f'{db_files["taxonomy"]} --rank none --outcov {output}/coverages/; '
+        'done | parallel -j 12',
+        'wait']
 
     if db_files['gene_coordinates']:
         woltka_cmds.append(
             f'for f in `ls {output}/alignments/*.sam.xz`; '
-            'do bname=`basename ${f/.sam.xz/}`; echo woltka classify -i $f '
+            'do bname=`basename ${f/.sam.xz/}`; '
+            f'mkdir -p {output}/bioms/' '${bname}; echo '
+            'woltka classify -i $f '
             f'-o {output}/'
             'bioms/${bname}/per-gene.biom --no-demux -c '
             f'{db_files["gene_coordinates"]}; done | parallel -j 12')
+        woltka_cmds.append('wait')
         woltka_cmds.append(f'woltka_merge biom --base {output}')
 
         wcdm = 'woltka tools collapse -i '

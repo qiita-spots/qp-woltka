@@ -182,11 +182,14 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge mxdx --base {out_dir}\n',
             f'mkdir -p {out_dir}/bioms\n',
             f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
-            '${f/.sam.xz/}`; echo woltka classify -i $f -o '
+            '${f/.sam.xz/}`; '
+            f'mkdir -p {out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
             f'{out_dir}/bioms/'
-            '${bname} --no-demux --lineage '
+            '${bname}/none.biom --no-demux --lineage '
             f'{database}.tax --rank none --outcov {out_dir}/coverages/; '
             'done | parallel -j 12\n',
+            'wait\n',
             f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
@@ -306,16 +309,22 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge mxdx --base {out_dir}\n',
             f'mkdir -p {out_dir}/bioms\n',
             f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
-            '${f/.sam.xz/}`; echo woltka classify -i $f -o '
+            '${f/.sam.xz/}`; '
+            f'mkdir -p {out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
             f'{out_dir}/bioms/'
-            '${bname} --no-demux --lineage '
+            '${bname}/none.biom --no-demux --lineage '
             f'{database}.tax --rank none --outcov {out_dir}/coverages/; '
             'done | parallel -j 12\n',
+            'wait\n',
             f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
-            '${f/.sam.xz/}`; echo woltka classify -i $f -o '
+            '${f/.sam.xz/}`; mkdir -p '
+            f'{out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
             f'{out_dir}/bioms/'
             '${bname}/per-gene.biom --no-demux -c '
             f'{database}.coords; done | parallel -j 12\n',
+            'wait\n',
             f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
