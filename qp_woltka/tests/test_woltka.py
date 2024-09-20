@@ -166,8 +166,8 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 1\n',
-            '#SBATCH --time 30:00:00\n',
+            '#SBATCH -n 12\n',
+            '#SBATCH --time 20:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
@@ -179,10 +179,18 @@ class WoltkaTests(PluginTestCase):
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
-            f'woltka_merge --base {out_dir}\n',
-            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
-            f'--no-demux --lineage {database}.tax '
-            '--rank free,none --outcov coverages/\n',
+            f'woltka_merge mxdx --base {out_dir}\n',
+            f'mkdir -p {out_dir}/bioms\n',
+            f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
+            '${f/.sam.xz/}`; '
+            f'mkdir -p {out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
+            f'{out_dir}/bioms/'
+            '${bname}/none.biom --no-demux --lineage '
+            f'{database}.tax --rank none --outcov {out_dir}/coverages/; '
+            'done | parallel -j 12\n',
+            'wait\n',
+            f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
@@ -196,7 +204,7 @@ class WoltkaTests(PluginTestCase):
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
         mkdir(f'{out_dir}/woltka')
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
 
@@ -208,7 +216,7 @@ class WoltkaTests(PluginTestCase):
 
         exp = [
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/woltka/none.biom', 'biom'),
+                         [(f'{out_dir}/none.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')])]
         self.assertCountEqual(ainfo, exp)
@@ -285,8 +293,8 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH --mail-user "qiita.help@gmail.com"\n',
             f'#SBATCH --job-name merge-{job_id}\n',
             '#SBATCH -N 1\n',
-            '#SBATCH -n 1\n',
-            '#SBATCH --time 30:00:00\n',
+            '#SBATCH -n 12\n',
+            '#SBATCH --time 20:00:00\n',
             '#SBATCH --mem 140g\n',
             f'#SBATCH --output {out_dir}/merge-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/merge-{job_id}.err\n',
@@ -298,12 +306,26 @@ class WoltkaTests(PluginTestCase):
             'set -e\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             'if [[ ! -f "errors.log" && $sruns -eq "1" ]]; then\n',
-            f'woltka_merge --base {out_dir}\n',
-            f'woltka classify -i {out_dir}/alignments -o {out_dir}/woltka '
-            f'--no-demux --lineage {database}.tax '
-            '--rank free,none --outcov coverages/\n',
-            f'woltka classify -i {out_dir}/alignments --no-demux -c '
-            f'{database}.coords -o per-gene.biom\n',
+            f'woltka_merge mxdx --base {out_dir}\n',
+            f'mkdir -p {out_dir}/bioms\n',
+            f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
+            '${f/.sam.xz/}`; '
+            f'mkdir -p {out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
+            f'{out_dir}/bioms/'
+            '${bname}/none.biom --no-demux --lineage '
+            f'{database}.tax --rank none --outcov {out_dir}/coverages/; '
+            'done | parallel -j 12\n',
+            'wait\n',
+            f'for f in `ls {out_dir}/alignments/*.sam.xz`; do bname=`basename '
+            '${f/.sam.xz/}`; mkdir -p '
+            f'{out_dir}/bioms/'
+            '${bname}; echo woltka classify -i $f -o '
+            f'{out_dir}/bioms/'
+            '${bname}/per-gene.biom --no-demux -c '
+            f'{database}.coords; done | parallel -j 12\n',
+            'wait\n',
+            f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
@@ -317,7 +339,7 @@ class WoltkaTests(PluginTestCase):
         # now let's test that if finished correctly
         sdir = 'qp_woltka/support_files/'
         mkdir(f'{out_dir}/woltka')
-        copyfile(f'{sdir}/none.biom', f'{out_dir}/woltka/none.biom')
+        copyfile(f'{sdir}/none.biom', f'{out_dir}/none.biom')
         copyfile(f'{sdir}/per-gene.biom', f'{out_dir}/per-gene.biom')
         copyfile(f'{sdir}/alignment.tar', f'{out_dir}/alignment.tar')
         copyfile(f'{sdir}/coverages.tgz', f'{out_dir}/coverages.tgz')
@@ -329,7 +351,7 @@ class WoltkaTests(PluginTestCase):
 
         exp = [
             ArtifactInfo('Per genome Predictions', 'BIOM',
-                         [(f'{out_dir}/woltka/none.biom', 'biom'),
+                         [(f'{out_dir}/none.biom', 'biom'),
                           (f'{out_dir}/alignment.tar', 'log'),
                           (f'{out_dir}/none/coverages.tgz', 'plain_text')]),
             ArtifactInfo('Per gene Predictions', 'BIOM',
