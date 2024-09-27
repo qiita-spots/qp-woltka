@@ -82,7 +82,13 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
 
     # processing html_summary
     html_summary = files.pop('html_summary')
-    df = pd.read_html(html_summary)[0]
+    try:
+        df = pd.read_html(html_summary)[0]
+    except ValueError as e:
+        txt = ('The summary table could not parsed; please send an email '
+               'to qiita.help@ucsd.edu')
+        raise ValueError(txt)
+
     dname = dirname(html_summary)
     fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
         lambda x: (x.filename.rsplit('_R1')[0],

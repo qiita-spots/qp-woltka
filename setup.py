@@ -56,7 +56,7 @@ setup(name='qp-woltka',
                         'polars-lts-cpu', 'woltka @ https://github.com/'
                         'qiyunzhu/woltka/archive/refs/tags/v0.1.6.zip',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
-                        'pysyndna/archive/refs/heads/main.zip',
+                        'pysyndna/archive/refs/heads/main.zip', 'html5lib',
                         'mxdx @ https://github.com/wasade/mxdx/archive/'
                         'refs/heads/main.zip'],
       classifiers=classifiers
