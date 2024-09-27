@@ -90,6 +90,19 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
         lambda x: (x.filename.rsplit('_R2')[0],
                    (x.filename, x.reads)), axis=1).values)
+    # let's check that there is some overlap and if not try something different
+    if not set(fwd) & set(rev):
+        fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
+            lambda x: (x.filename.rsplit('.R1.')[0],
+                       (x.filename, x.reads)), axis=1).values)
+        rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+            lambda x: (x.filename.rsplit('.R2.')[0],
+                       (x.filename, x.reads)), axis=1).values)
+        if not set(fwd) & set(rev):
+            raise ValueError('There is no overlap between fwd/rev reads, if '
+                             'you think that not correct please send an email '
+                             'to qiita.help@gmail.com')
+
     lines = ['filename_1\trecord_count']
     if rev:
         lines = ['filename_1\tfilename_2\trecord_count']
