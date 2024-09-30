@@ -84,7 +84,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     html_summary = files.pop('html_summary')
     try:
         df = pd.read_html(html_summary)[0]
-    except ValueError as e:
+    except ValueError:
         txt = ('The summary table could not parsed; please send an email '
                'to qiita.help@ucsd.edu')
         raise ValueError(txt)
