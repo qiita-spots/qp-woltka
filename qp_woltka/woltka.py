@@ -483,13 +483,13 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
              '  while read -r fwd rev; do ',
-             '    echo fastq_pair -t 50000000 reads/uneven/${fwd} '
+             '    echo "fastq_pair -t 50000000 reads/uneven/${fwd} '
              'reads/uneven/${rev}; '
              'mv reads/uneven/${fwd}.paired.fq reads/${fwd};'
-             'mv reads/uneven/${rev}.paired.fq reads/${rev};'
-             'gzip reads/${fwd} reads/${rev}',
+             ' mv reads/uneven/${rev}.paired.fq reads/${rev};'
+             'gzip reads/${fwd} reads/${rev}";',
              '  done < finish_sample_details.txt | '
-             f'parallel -j {PPN}'
+             f'parallel -j {PPN}',
              '  for f in `ls sams/fwd_*`;',
              '    do',
              '      fn=`basename $f`;',
