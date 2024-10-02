@@ -412,8 +412,9 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
         if r is not None:
             line += f'rev_{sname} {r["filepath"]}\n'
 
-        with open(join(output, f'finish_sample_details.txt'), 'a+') as fh:
-            fh.write(f'{basename(f["filepath"])}\t{basename(r["filepath"])}\n')
+        with open(join(output, 'finish_sample_details.txt'), 'a+') as fh:
+            fh.write(f'{basename(f["filepath"])[:-3]}\t'
+                     f'{basename(r["filepath"])[:-3]}\n')
 
         with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(line)
@@ -424,7 +425,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
               '-q ${f} -S $PWD/sams/${sn}.sam ' +\
               '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
-              '--no-head --no-unal --un $PWD/reads/${fn}'
+              '--no-head --no-unal --un $PWD/reads/${fn/.gz/}'
 
     # all the setup pieces
     lines = ['#!/bin/bash',
