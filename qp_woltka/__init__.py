@@ -41,7 +41,7 @@ woltka_cmd = QiitaCommand(
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(woltka_cmd)
 
-# abs quant
+# split synDNA in reads
 db_path = environ["QC_WOLTKA_SYNDNA_DB_DP"]
 req_params = {
     'input': ('artifact', ['per_sample_FASTQ'])
@@ -58,7 +58,8 @@ dflt_param_set = {
     'SynDNA': {'Database': db_path, 'min_sample_counts': 1},
 }
 syndna_cmd = QiitaCommand(
-    'SynDNA Woltka', "Process SynDNA reads using woltka", woltka_syndna,
+    'Remove SynDNA reads', "Remove SynDNA reads using bowtie2 & woltka, and "
+    "generate even mates", woltka_syndna,
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(syndna_cmd)
 
