@@ -500,7 +500,7 @@ class WoltkaTests(PluginTestCase):
             '    echo "fastq_pair -t 50000000 reads/uneven/${fwd} '
             'reads/uneven/${rev}; mv reads/uneven/${fwd}.paired.fq '
             'reads/${fwd}; mv reads/uneven/${rev}.paired.fq reads/${rev}; '
-            'gzip reads/${fwd} reads/${rev};"\n done < ',
+            'gzip reads/${fwd} reads/${rev}";\n done < ',
             'finish_sample_details.txt | parallel -j 8\n',
             '  for f in `ls sams/fwd_*`;\n',
             '    do\n',

@@ -6,7 +6,7 @@
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
 import re
-from os import environ, mkdir, listdir
+from os import environ, mkdir
 from os.path import join, basename, exists, dirname
 from glob import glob
 from shutil import copy2
@@ -482,14 +482,13 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'sjobs=`ls sams/*.sam | wc -l`',
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
-             '  while read -r fwd rev; do ',
+             '  while read -r fwd rev; do '
              '    echo "fastq_pair -t 50000000 reads/uneven/${fwd} '
              'reads/uneven/${rev}; '
-             'mv reads/uneven/${fwd}.paired.fq reads/${fwd};'
-             ' mv reads/uneven/${rev}.paired.fq reads/${rev};'
-             'gzip reads/${fwd} reads/${rev}";',
-             '  done < finish_sample_details.txt | '
-             f'parallel -j {PPN}',
+             'mv reads/uneven/${fwd}.paired.fq reads/${fwd}; '
+             'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
+             'gzip reads/${fwd} reads/${rev}"; done < '
+             f'finish_sample_details.txt | parallel -j {PPN}',
              '  for f in `ls sams/fwd_*`;',
              '    do',
              '      fn=`basename $f`;',
@@ -573,7 +572,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     reads = []
     regex_fwd = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]1).*')
     regex_rev = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]2).*')
-    for f in listdir(fp_seqs):
+    for f in glob(f'{fp_seqs}/*.fastq.gz'):
         fwd = regex_fwd.match(f)
         rev = regex_rev.match(f)
         if fwd == rev:
