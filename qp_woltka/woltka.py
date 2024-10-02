@@ -425,7 +425,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
               '-q ${f} -S $PWD/sams/${sn}.sam ' +\
               '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
-              '--no-head --no-unal --un $PWD/reads/${fn/.gz/}'
+              '--no-head --no-unal --un $PWD/reads/uneven/${fn/.gz/}'
 
     # all the setup pieces
     lines = ['#!/bin/bash',
@@ -440,7 +440,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
-             'mkdir -p reads sams',
+             'mkdir -p reads/uneven sams',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
@@ -482,6 +482,14 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'sjobs=`ls sams/*.sam | wc -l`',
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
+             '  while read -r fwd rev; do ',
+             '    echo fastq_pair -t 50000000 reads/uneven/${fwd} '
+             'reads/uneven/${rev}; '
+             'mv reads/uneven/${fwd}.paired.fq reads/${fwd};'
+             'mv reads/uneven/${rev}.paired.fq reads/${rev};'
+             'gzip reads/${fwd} reads/${rev}',
+             '  done < finish_sample_details.txt | '
+             f'parallel -j {PPN}'
              '  for f in `ls sams/fwd_*`;',
              '    do',
              '      fn=`basename $f`;',

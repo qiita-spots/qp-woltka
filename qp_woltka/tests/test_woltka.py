@@ -456,7 +456,7 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-1%8\n',
             f'cd {out_dir}\n',
-            'mkdir -p reads sams\n',
+            'mkdir -p reads/uneven sams\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
@@ -470,7 +470,8 @@ class WoltkaTests(PluginTestCase):
             f'    bowtie2 -p 8 -x {database} -q '
             '${f} -S $PWD/sams/${sn}.sam --seed 42 --very-sensitive -k 16 '
             '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" --score-min '
-            '"L,0,-0.05" --no-head --no-unal --un $PWD/reads/${fn/.gz/}\n',
+            '"L,0,-0.05" --no-head --no-unal --un '
+            '$PWD/reads/uneven/${fn/.gz/}\n',
             '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt\n',
             'date']
         self.assertEqual(main, exp_main)
@@ -495,6 +496,12 @@ class WoltkaTests(PluginTestCase):
             'sjobs=`ls sams/*.sam | wc -l`\n',
             'if [[ $sruns -eq $sjobs ]]; then\n',
             '  mkdir -p sams/final\n',
+            '  while read -r fwd rev; do \n'
+            '    echo fastq_pair -t 50000000 reads/uneven/${fwd} ',
+            'reads/uneven/${rev}; mv reads/uneven/${fwd}.paired.fq ',
+            'reads/${fwd}; mv reads/uneven/${rev}.paired.fq reads/${rev};',
+            'gzip reads/${fwd} reads/${rev}\n  done < ',
+            'finish_sample_details.txt | parallel -j 8\n',
             '  for f in `ls sams/fwd_*`;\n',
             '    do\n',
             '      fn=`basename $f`;\n',
