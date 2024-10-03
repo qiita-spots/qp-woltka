@@ -90,14 +90,16 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         raise ValueError(txt)
 
     dname = dirname(html_summary)
+    rev_exists = 'raw_reverse_seqs' in df.file_type
     fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
         lambda x: (x.filename.rsplit('_R1')[0],
                    (x.filename, x.reads)), axis=1).values)
-    rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
-        lambda x: (x.filename.rsplit('_R2')[0],
-                   (x.filename, x.reads)), axis=1).values)
+    if rev_exists:
+        rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+            lambda x: (x.filename.rsplit('_R2')[0],
+                       (x.filename, x.reads)), axis=1).values)
     # let's check that there is some overlap and if not try something different
-    if not set(fwd) & set(rev):
+    if rev_exists and not set(fwd) & set(rev):
         fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
             lambda x: (x.filename.rsplit('.R1.')[0],
                        (x.filename, x.reads)), axis=1).values)
@@ -111,7 +113,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
 
     lines = ['filename_1\trecord_count']
     failed_reads = []
-    if rev:
+    if rev_exists:
         lines = ['filename_1\tfilename_2\trecord_count']
     for k, (fn, reads) in fwd.items():
         line = f'{dname}/{fn}\t'
@@ -247,19 +249,34 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     # https://github.com/BenLangmead/bowtie2/issues/311
     preparation_information = join(output, 'prep_info.tsv')
     prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
-    bowtie2 = (
-        f'mxdx mux --file-map {files_list_fp} --batch '
-        '${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} --paired-handling interleave | '
-        'bowtie2 -p ${bt2_cores} '
-        f'-x {database_bowtie2} --interleaved - --seed 42 '
-        '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-        '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
-        "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
-        f'mxdx demux --file-map {files_list_fp} '
-        '--batch ${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
-        '--extension sam.xz')
+    if rev_exists:
+        bowtie2 = (
+            f'mxdx mux --file-map {files_list_fp} --batch '
+            '${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --paired-handling interleave | '
+            'bowtie2 -p ${bt2_cores} '
+            f'-x {database_bowtie2} --interleaved - --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
+            f'mxdx demux --file-map {files_list_fp} '
+            '--batch ${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
+            '--extension sam.xz')
+    else:
+        bowtie2 = (
+            f'mxdx mux --file-map {files_list_fp} --batch '
+            '${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} | '
+            'bowtie2 -p ${bt2_cores} '
+            f'-x {database_bowtie2} -q - --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
+            f'mxdx demux --file-map {files_list_fp} '
+            '--batch ${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
+            '--extension sam.xz')
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:
