@@ -110,26 +110,25 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             raise ValueError('There is no overlap between fwd/rev reads, if '
                              'you think that not correct please send an email '
                              'to qiita.help@gmail.com')
-
-    lines = ['filename_1\trecord_count']
-    failed_reads = []
     if rev_exists:
+        failed_reads = []
         lines = ['filename_1\tfilename_2\trecord_count']
-    for k, (fn, reads) in fwd.items():
-        line = f'{dname}/{fn}\t'
-        if k in rev:
+        for k, (fn, reads) in fwd.items():
             rfn, rreads = rev.pop(k)
             if int(rreads) != int(reads):
                 failed_reads.append(f'{basename(fn)} {basename(rfn)}')
-            line += f'{dname}/{rfn}\t'
-        line += f'{reads}'
-        lines.append(line)
-    if failed_reads:
-        failed_reads = '\n'.join(failed_reads)
-        raise ValueError(
-            'Some of the fwd/rev do not have the same number of reads; are '
-            'you using an artifact created with a newer command?\n\n'
-            f'Failed files:\n {failed_reads}')
+            lines.append(f'{dname}/{fn}\t{dname}/{rfn}\t{reads}')
+        if failed_reads:
+            failed_reads = '\n'.join(failed_reads)
+            raise ValueError(
+                'Some of the fwd/rev do not have the same number of reads; '
+                'are you using an artifact created with a newer command?\n\n'
+                f'Failed files:\n {failed_reads}')
+    else:
+        lines = ['filename_1\trecord_count']
+        for k, (fn, reads) in fwd.items():
+            lines.append(f'{dname}/{fn}\t{reads}')
+
     files_list_fp = f'{output}/files_list.tsv'
     with open(files_list_fp, 'w') as fp:
         fp.write('\n'.join(lines))
