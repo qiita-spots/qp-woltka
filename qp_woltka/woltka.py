@@ -110,15 +110,24 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
                              'to qiita.help@gmail.com')
 
     lines = ['filename_1\trecord_count']
+    failed_reads = []
     if rev:
         lines = ['filename_1\tfilename_2\trecord_count']
     for k, (fn, reads) in fwd.items():
         line = f'{dname}/{fn}\t'
         if k in rev:
-            rfn = rev.pop(k)[0]
+            rfn, rreads = rev.pop(k)
+            if int(rreads) != int(reads):
+                failed_reads.append(f'{basename(fn)} {basename(rfn)}')
             line += f'{dname}/{rfn}\t'
         line += f'{reads}'
         lines.append(line)
+    if failed_reads:
+        failed_reads = '\n'.join(failed_reads)
+        raise ValueError(
+            'Some of the fwd/rev do not have the same number of reads; are '
+            'you using an artifact created with a newer command?\n\n'
+            f'Failed files:\n {failed_reads}')
     files_list_fp = f'{output}/files_list.tsv'
     with open(files_list_fp, 'w') as fp:
         fp.write('\n'.join(lines))
@@ -482,9 +491,8 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'sjobs=`ls sams/*.sam | wc -l`',
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
-             '  while read -r fwd rev; do '
-             '    echo "fastq_pair -t 50000000 reads/uneven/${fwd} '
-             'reads/uneven/${rev}; '
+             '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
+             'reads/uneven/${fwd} reads/uneven/${rev}; '
              'mv reads/uneven/${fwd}.paired.fq reads/${fwd}; '
              'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
              'gzip reads/${fwd} reads/${rev}"; done < '
@@ -581,9 +589,9 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
             # resetting ainfo
             ainfo = []
         elif fwd is not None:
-            reads.append((f'{fp_seqs}/{f}', 'raw_forward_seqs'))
+            reads.append((f, 'raw_forward_seqs'))
         else:
-            reads.append((f'{fp_seqs}/{f}', 'raw_reverse_seqs'))
+            reads.append((f, 'raw_reverse_seqs'))
 
     if not errors:
         ainfo.append(

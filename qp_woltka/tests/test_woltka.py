@@ -496,11 +496,11 @@ class WoltkaTests(PluginTestCase):
             'sjobs=`ls sams/*.sam | wc -l`\n',
             'if [[ $sruns -eq $sjobs ]]; then\n',
             '  mkdir -p sams/final\n',
-            '  while read -r fwd rev; do \n'
-            '    echo "fastq_pair -t 50000000 reads/uneven/${fwd} '
-            'reads/uneven/${rev}; mv reads/uneven/${fwd}.paired.fq '
-            'reads/${fwd}; mv reads/uneven/${rev}.paired.fq reads/${rev}; '
-            'gzip reads/${fwd} reads/${rev}";\n done < ',
+            '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
+            'reads/uneven/${fwd} reads/uneven/${rev}; mv '
+            'reads/uneven/${fwd}.paired.fq reads/${fwd}; '
+            'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
+            'gzip reads/${fwd} reads/${rev}"; done < '
             'finish_sample_details.txt | parallel -j 8\n',
             '  for f in `ls sams/fwd_*`;\n',
             '    do\n',
