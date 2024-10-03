@@ -418,12 +418,23 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
 
         sname = search_by_filename(basename(f['filepath']), lookup)
         line = f'fwd_{sname} {f["filepath"]}\n'
+        fline = f'{basename(f["filepath"])[:-3]}\n'
+        fastq_pair_cmd = ('  while read -r fwd; do echo "'
+                          'mv reads/uneven/${fwd} reads/${fwd}; '
+                          'gzip reads/${fwd} reads/${rev}";')
         if r is not None:
             line += f'rev_{sname} {r["filepath"]}\n'
+            fline = (f'{basename(f["filepath"])[:-3]}\t'
+                     f'{basename(r["filepath"])[:-3]}\n')
+            fastq_pair_cmd = (
+                '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
+                'reads/uneven/${fwd} reads/uneven/${rev}; '
+                'mv reads/uneven/${fwd}.paired.fq reads/${fwd}; '
+                'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
+                'gzip reads/${fwd} reads/${rev}";')
 
         with open(join(output, 'finish_sample_details.txt'), 'a+') as fh:
-            fh.write(f'{basename(f["filepath"])[:-3]}\t'
-                     f'{basename(r["filepath"])[:-3]}\n')
+            fh.write(fline)
 
         with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(line)
@@ -491,11 +502,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'sjobs=`ls sams/*.sam | wc -l`',
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
-             '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
-             'reads/uneven/${fwd} reads/uneven/${rev}; '
-             'mv reads/uneven/${fwd}.paired.fq reads/${fwd}; '
-             'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
-             'gzip reads/${fwd} reads/${rev}"; done < '
+             f'{fastq_pair_cmd} done < '
              f'finish_sample_details.txt | parallel -j {PPN}',
              '  for f in `ls sams/fwd_*`;',
              '    do',
