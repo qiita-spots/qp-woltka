@@ -90,7 +90,8 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         raise ValueError(txt)
 
     dname = dirname(html_summary)
-    rev_exists = 'raw_reverse_seqs' in df.file_type
+    rev_exists = 'raw_reverse_seqs' in df.file_type.unique()
+
     fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
         lambda x: (x.filename.rsplit('_R1')[0],
                    (x.filename, x.reads)), axis=1).values)
