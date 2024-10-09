@@ -52,11 +52,11 @@ setup(name='qp-woltka',
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
                         'h5py >= 2.3.1', 'biom-format', 'lxml',
-                        # forcing 0.1.6 because Qiita uses this version
+                        # forcing 0.1.7 because Qiita uses this version
                         'polars-lts-cpu', 'woltka @ https://github.com/'
-                        'qiyunzhu/woltka/archive/refs/tags/v0.1.6.zip',
+                        'qiyunzhu/woltka/archive/refs/tags/v0.1.7.zip',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
-                        'pysyndna/archive/refs/heads/main.zip',
+                        'pysyndna/archive/refs/heads/main.zip', 'html5lib',
                         'mxdx @ https://github.com/wasade/mxdx/archive/'
                         'refs/heads/main.zip'],
       classifiers=classifiers

@@ -6,7 +6,7 @@
 # The full license is in the file LICENSE, distributed with this software.
 # -----------------------------------------------------------------------------
 import re
-from os import environ, mkdir, listdir
+from os import environ, mkdir
 from os.path import join, basename, exists, dirname
 from glob import glob
 from shutil import copy2
@@ -25,12 +25,12 @@ from qiita_client.util import system_call
 
 # resources per job
 PPN = 8
-MAX_RUNNING = 8
+MAX_RUNNING = 12
 TASKS_IN_SCRIPT = 10
 
-MEMORY = '70g'
-LARGE_MEMORY = '150g'
-MERGE_MEMORY = '140g'
+MEMORY = '60g'
+LARGE_MEMORY = '180g'
+MERGE_MEMORY = '30g'
 SYNDNA_MEMORY = '190g'
 # setting so an iSeq run, generates 2 jobs
 BATCHSIZE = 50000000
@@ -82,24 +82,54 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
 
     # processing html_summary
     html_summary = files.pop('html_summary')
-    df = pd.read_html(html_summary)[0]
+    try:
+        df = pd.read_html(html_summary)[0]
+    except ValueError:
+        txt = ('The summary table could not parsed; please send an email '
+               'to qiita.help@ucsd.edu')
+        raise ValueError(txt)
+
     dname = dirname(html_summary)
+    rev_exists = 'raw_reverse_seqs' in df.file_type.unique()
+
     fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
         lambda x: (x.filename.rsplit('_R1')[0],
                    (x.filename, x.reads)), axis=1).values)
-    rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
-        lambda x: (x.filename.rsplit('_R2')[0],
-                   (x.filename, x.reads)), axis=1).values)
-    lines = ['filename_1\trecord_count']
-    if rev:
+    if rev_exists:
+        rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+            lambda x: (x.filename.rsplit('_R2')[0],
+                       (x.filename, x.reads)), axis=1).values)
+    # let's check that there is some overlap and if not try something different
+    if rev_exists and not set(fwd) & set(rev):
+        fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
+            lambda x: (x.filename.rsplit('.R1.')[0],
+                       (x.filename, x.reads)), axis=1).values)
+        rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
+            lambda x: (x.filename.rsplit('.R2.')[0],
+                       (x.filename, x.reads)), axis=1).values)
+        if not set(fwd) & set(rev):
+            raise ValueError('There is no overlap between fwd/rev reads, if '
+                             'you think that not correct please send an email '
+                             'to qiita.help@gmail.com')
+    if rev_exists:
+        failed_reads = []
         lines = ['filename_1\tfilename_2\trecord_count']
-    for k, (fn, reads) in fwd.items():
-        line = f'{dname}/{fn}\t'
-        if k in rev:
-            rfn = rev.pop(k)[0]
-            line += f'{dname}/{rfn}\t'
-        line += f'{reads}'
-        lines.append(line)
+        for k, (fn, reads) in fwd.items():
+            rfn, rreads = rev.pop(k)
+            if int(rreads) != int(reads):
+                failed_reads.append(f'{basename(fn)} {basename(rfn)}')
+            lines.append(f'{dname}/{fn}\t{dname}/{rfn}\t{reads}')
+        if failed_reads:
+            failed_reads = '\n'.join(failed_reads)
+            raise ValueError(
+                'Some of the fwd/rev do not have the same number of reads; '
+                'are you using an artifact created with a newer command?\n\n'
+                f'Failed files:\n {failed_reads}')
+    else:
+        lines = ['filename_1\trecord_count']
+        for k, (fn, reads) in fwd.items():
+            lines.append(f'{dname}/{fn}\t{reads}')
+
     files_list_fp = f'{output}/files_list.tsv'
     with open(files_list_fp, 'w') as fp:
         fp.write('\n'.join(lines))
@@ -219,19 +249,34 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     # https://github.com/BenLangmead/bowtie2/issues/311
     preparation_information = join(output, 'prep_info.tsv')
     prep.set_index('sample_name').to_csv(preparation_information, sep='\t')
-    bowtie2 = (
-        f'mxdx mux --file-map {files_list_fp} --batch '
-        '${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} --paired-handling interleave | '
-        'bowtie2 -p ${bt2_cores} '
-        f'-x {database_bowtie2} --interleaved - --seed 42 '
-        '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
-        '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
-        "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
-        f'mxdx demux --file-map {files_list_fp} '
-        '--batch ${SLURM_ARRAY_TASK_ID} '
-        f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
-        '--extension sam.xz')
+    if rev_exists:
+        bowtie2 = (
+            f'mxdx mux --file-map {files_list_fp} --batch '
+            '${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --paired-handling interleave | '
+            'bowtie2 -p ${bt2_cores} '
+            f'-x {database_bowtie2} --interleaved - --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
+            f'mxdx demux --file-map {files_list_fp} '
+            '--batch ${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
+            '--extension sam.xz')
+    else:
+        bowtie2 = (
+            f'mxdx mux --file-map {files_list_fp} --batch '
+            '${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} | '
+            'bowtie2 -p ${bt2_cores} '
+            f'-x {database_bowtie2} -q - --seed 42 '
+            '--very-sensitive -k 16 --np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" '
+            '--score-min "L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            "--no-1mm-upfront | cut -f1-9 | sed 's/$/\t*\t*/' | "
+            f'mxdx demux --file-map {files_list_fp} '
+            '--batch ${SLURM_ARRAY_TASK_ID} '
+            f'--batch-size {BATCHSIZE} --output-base {output}/alignments '
+            '--extension sam.xz')
 
     memory = MEMORY
     if 'RS210' in database_bowtie2:
@@ -390,8 +435,23 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
 
         sname = search_by_filename(basename(f['filepath']), lookup)
         line = f'fwd_{sname} {f["filepath"]}\n'
+        fline = f'{basename(f["filepath"])[:-3]}\n'
+        fastq_pair_cmd = ('  while read -r fwd; do echo "'
+                          'mv reads/uneven/${fwd} reads/${fwd}; '
+                          'gzip reads/${fwd} reads/${rev}";')
         if r is not None:
             line += f'rev_{sname} {r["filepath"]}\n'
+            fline = (f'{basename(f["filepath"])[:-3]}\t'
+                     f'{basename(r["filepath"])[:-3]}\n')
+            fastq_pair_cmd = (
+                '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
+                'reads/uneven/${fwd} reads/uneven/${rev}; '
+                'mv reads/uneven/${fwd}.paired.fq reads/${fwd}; '
+                'mv reads/uneven/${rev}.paired.fq reads/${rev}; '
+                'gzip reads/${fwd} reads/${rev}";')
+
+        with open(join(output, 'finish_sample_details.txt'), 'a+') as fh:
+            fh.write(fline)
 
         with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(line)
@@ -402,7 +462,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
               '-q ${f} -S $PWD/sams/${sn}.sam ' +\
               '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
               '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
-              '--no-head --no-unal --un-gz $PWD/reads/${fn}'
+              '--no-head --no-unal --un $PWD/reads/uneven/${fn/.gz/}'
 
     # all the setup pieces
     lines = ['#!/bin/bash',
@@ -417,7 +477,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
-             'mkdir -p reads sams',
+             'mkdir -p reads/uneven sams',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
@@ -459,6 +519,8 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'sjobs=`ls sams/*.sam | wc -l`',
              'if [[ $sruns -eq $sjobs ]]; then',
              '  mkdir -p sams/final',
+             f'{fastq_pair_cmd} done < '
+             f'finish_sample_details.txt | parallel -j {PPN}',
              '  for f in `ls sams/fwd_*`;',
              '    do',
              '      fn=`basename $f`;',
@@ -542,7 +604,7 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
     reads = []
     regex_fwd = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]1).*')
     regex_rev = re.compile(r'(.*)_(S\d{1,4})_(L\d{1,3})_([RI]2).*')
-    for f in listdir(fp_seqs):
+    for f in glob(f'{fp_seqs}/*.fastq.gz'):
         fwd = regex_fwd.match(f)
         rev = regex_rev.match(f)
         if fwd == rev:
@@ -551,9 +613,9 @@ def woltka_syndna(qclient, job_id, parameters, out_dir):
             # resetting ainfo
             ainfo = []
         elif fwd is not None:
-            reads.append((f'{fp_seqs}/{f}', 'raw_forward_seqs'))
+            reads.append((f, 'raw_forward_seqs'))
         else:
-            reads.append((f'{fp_seqs}/{f}', 'raw_reverse_seqs'))
+            reads.append((f, 'raw_reverse_seqs'))
 
     if not errors:
         ainfo.append(
