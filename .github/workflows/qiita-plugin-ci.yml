@@ -82,7 +82,6 @@ jobs:
           # using the same version for consistency; note that we will need to force
           conda install --yes -c bioconda bowtie2==2.5.0
 
-
           pip --quiet install .
           pip --quiet install -U pip pip nose flake8
           pip --quiet install https://github.com/qiita-spots/qiita_client/archive/master.zip
@@ -96,7 +95,7 @@ jobs:
 
           woltka_version=`woltka --version`
           bowtie2_version=`bowtie2 --version`
-          if [[ $woltka_version != *"0.1.6"* ]]; then echo "wrong woltka version", $woltka_version; exit 1; fi
+          if [[ $woltka_version != *"0.1.7"* ]]; then echo "wrong woltka version", $woltka_version; exit 1; fi
           if [[ $bowtie2_version != *"2.5.0"* ]]; then echo "wrong bowtie2 version", $bowtie2_version; exit 1; fi
 
           export ENVIRONMENT="source /home/runner/.profile; conda activate qp-woltka; export QC_WOLTKA_DB_DP=$PWD/qp_woltka/databases/woltka/; export QC_WOLTKA_SYNDNA_DB_DP=$PWD/qp_woltka/databases/synDNA"
