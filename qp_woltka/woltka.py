@@ -25,12 +25,12 @@ from qiita_client.util import system_call
 
 # resources per job
 PPN = 8
-MAX_RUNNING = 8
+MAX_RUNNING = 12
 TASKS_IN_SCRIPT = 10
 
-MEMORY = '70g'
-LARGE_MEMORY = '150g'
-MERGE_MEMORY = '140g'
+MEMORY = '60g'
+LARGE_MEMORY = '180g'
+MERGE_MEMORY = '30g'
 SYNDNA_MEMORY = '190g'
 # setting so an iSeq run, generates 2 jobs
 BATCHSIZE = 50000000
