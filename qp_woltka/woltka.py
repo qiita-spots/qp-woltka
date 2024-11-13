@@ -672,21 +672,22 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
             ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
             aparams = ainfo['processing_parameters']
             ogu_fp = ainfo['files']['biom'][0]['filepath']
-            if 'plain_text' not in ainfo['files']:
-                raise ValueError("'Woltka per-genome' artifact is missing "
-                                 'coverage information')
-            coverages_fp = ainfo['files']['plain_text'][0]['filepath']
-            with topen(coverages_fp, 'r:gz') as tgz:
-                member = tgz.getmember('coverage_percentage.txt')
-                coverages = tgz.extractfile(member)
-                coverages_df = pd.read_csv(
-                    coverages, sep='\t', header=None,
-                    names=[OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY])
 
             if 'Database' not in aparams or not ogu_fp.endswith('none.biom'):
                 error = ("The selected 'Woltka per-genome' artifact doesn't "
                          "look like one, did you select the correct file?")
+            elif 'plain_text' not in ainfo['files']:
+                error = ("'Woltka per-genome' artifact is missing "
+                         'coverage information')
             else:
+                coverages_fp = ainfo['files']['plain_text'][0]['filepath']
+                with topen(coverages_fp, 'r:gz') as tgz:
+                    member = tgz.getmember('coverage_percentage.txt')
+                    coverages = tgz.extractfile(member)
+                    coverages_df = pd.read_csv(
+                        coverages, sep='\t', header=None,
+                        names=[OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY])
+
                 ogu_counts_per_sample = load_table(ogu_fp)
 
                 db_files = _process_database_files(aparams['Database'])
