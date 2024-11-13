@@ -152,14 +152,10 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     if 'length.map' in db_files:
         woltka_merge += f' --length_map {db_files["length.map"]}'
         extra_commands = (
-            'python -c "from glob import glob; from qp_woltka.util import '
-            "merge_ranges; coverages = glob('coverages/*.cov'); "
-            "open('artifact.cov', 'w').write('\\n'.join("
-            'merge_ranges(coverages)))"\n'
-            'python -c "from qp_woltka.util import coverage_percentage; '
-            "open('coverage_percentage.txt', 'w').write('\\n'.join("
-            "coverage_percentage(['artifact.cov'], '"
-            f'{db_files["length.map"]}' "')))\"")
+            'find ${PWD}/coverages -iname "*.cov" > ${PWD}/cov_files.txt\n'
+            'micov consolidate --paths ${PWD}/cov_files.txt --lengths '
+            f'{db_files["length.map"]} --output '
+            '${PWD}/coverages.tgz\n')
 
     woltka_cmds = [
         # creating the output folder
@@ -233,9 +229,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              '\n'.join(woltka_cmds),
              f'cd {output};',
              extra_commands,
-             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
-             'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
-             'coverages\n'
+             'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..;\n'
              'fi',
              f'finish_woltka {url} {name} {output}\n'
              "date"]  # end time

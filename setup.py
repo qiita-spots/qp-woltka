@@ -50,7 +50,7 @@ setup(name='qp-woltka',
       scripts=['scripts/configure_woltka', 'scripts/start_woltka',
                'scripts/finish_woltka', 'scripts/woltka_merge'],
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
-      install_requires=['click >= 3.3', 'future', 'pandas >= 0.15',
+      install_requires=['click >= 3.3', 'future', 'pandas >= 0.15', 'duckdb',
                         'h5py >= 2.3.1', 'biom-format', 'lxml',
                         # forcing 0.1.7 because Qiita uses this version
                         'polars-lts-cpu', 'woltka @ https://github.com/'
@@ -58,6 +58,8 @@ setup(name='qp-woltka',
                         'pysyndna @ https://github.com/AmandaBirmingham/'
                         'pysyndna/archive/refs/heads/main.zip', 'html5lib',
                         'mxdx @ https://github.com/wasade/mxdx/archive/'
+                        'refs/heads/main.zip',
+                        'micov @ https://github.com/biocore/micov/archive/'
                         'refs/heads/main.zip'],
       classifiers=classifiers
       )

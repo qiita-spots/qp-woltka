@@ -8,9 +8,7 @@ from glob import glob
 import h5py
 
 from qiita_client.util import system_call
-from qp_woltka.util import (
-    # merge_ranges, coverage_percentage,
-    search_by_filename)
+from qp_woltka.util import search_by_filename
 
 
 @click.group()
