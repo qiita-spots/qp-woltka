@@ -672,6 +672,9 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
             ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
             aparams = ainfo['processing_parameters']
             ogu_fp = ainfo['files']['biom'][0]['filepath']
+            if 'plain_text' not in ainfo['files']:
+                raise ValueError("'Woltka per-genome' artifact is missing "
+                                 'coverage information')
             coverages_fp = ainfo['files']['plain_text'][0]['filepath']
             with topen(coverages_fp, 'r:gz') as tgz:
                 member = tgz.getmember('coverage_percentage.txt')

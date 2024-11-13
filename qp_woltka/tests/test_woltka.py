@@ -131,8 +131,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
-            '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 60g\n',
+            '#SBATCH --time 80:00:00\n',
+            '#SBATCH --mem 100g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 0-0%12\n',
@@ -258,8 +258,8 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
-            '#SBATCH --time 40:00:00\n',
-            '#SBATCH --mem 60g\n',
+            '#SBATCH --time 80:00:00\n',
+            '#SBATCH --mem 100g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 0-0%12\n',
@@ -450,7 +450,7 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --job-name {job_id}\n',
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
-            '#SBATCH --time 8:00:00\n',
+            '#SBATCH --time 12:00:00\n',
             '#SBATCH --mem 190g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
@@ -617,9 +617,8 @@ class WoltkaTests(PluginTestCase):
         success, ainfo, msg = calculate_cell_counts(
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
-        self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
-                         "doesn't look like one, did you select the correct "
-                         "file?")
+        self.assertEqual(msg, "'Woltka per-genome' artifact is missing "
+                         'coverage information')
 
         # Finally, adding a full test is close to impossible - too many steps.
 
