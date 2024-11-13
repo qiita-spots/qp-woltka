@@ -617,8 +617,9 @@ class WoltkaTests(PluginTestCase):
         success, ainfo, msg = calculate_cell_counts(
             self.qclient, job_id, params, out_dir)
         self.assertFalse(success)
-        self.assertEqual(msg, "'Woltka per-genome' artifact is missing "
-                         'coverage information')
+        self.assertEqual(msg, "The selected 'Woltka per-genome' artifact "
+                         "doesn't look like one, did you select the correct "
+                         "file?")
 
         # Finally, adding a full test is close to impossible - too many steps.
 
