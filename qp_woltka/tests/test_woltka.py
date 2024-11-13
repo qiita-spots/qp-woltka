@@ -193,9 +193,7 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
-            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
-            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
-            'coverages\n',
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..;\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
@@ -328,9 +326,7 @@ class WoltkaTests(PluginTestCase):
             f'woltka_merge biom --base {out_dir}\n',
             f'cd {out_dir};\n',
             '\n',
-            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..; '
-            'tar zcvf coverages.tgz coverage_percentage.txt artifact.cov '
-            'coverages\n',
+            'cd alignments; tar -cvf ../alignment.tar *.sam.xz; cd ..;\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
             'date\n']
