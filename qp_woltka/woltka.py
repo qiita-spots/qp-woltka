@@ -14,9 +14,11 @@ from math import ceil
 from biom import load_table
 from biom.util import biom_open
 import pandas as pd
+from tarfile import open as topen
 from pysyndna import fit_linear_regression_models_for_qiita
 from pysyndna import calc_ogu_cell_counts_per_g_of_sample_for_qiita
 from pysyndna import calc_copies_of_ogu_orf_ssrna_per_g_sample_for_qiita
+from pysyndna import OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY
 
 from qp_woltka.util import search_by_filename
 
@@ -28,16 +30,16 @@ PPN = 8
 MAX_RUNNING = 12
 TASKS_IN_SCRIPT = 10
 
-MEMORY = '60g'
+MEMORY = '100g'
 LARGE_MEMORY = '180g'
-MERGE_MEMORY = '30g'
+MERGE_MEMORY = '80g'
 SYNDNA_MEMORY = '190g'
 # setting so an iSeq run, generates 2 jobs
 BATCHSIZE = 50000000
 
-WALLTIME = '40:00:00'
-MERGE_WALLTIME = '20:00:00'
-SYNDNA_WALLTIME = '8:00:00'
+WALLTIME = '80:00:00'
+MERGE_WALLTIME = '25:00:00'
+SYNDNA_WALLTIME = '12:00:00'
 
 
 def _process_database_files(database_fp):
@@ -185,7 +187,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
         woltka_cmds.append('wait')
         woltka_cmds.append(f'woltka_merge biom --base {output}')
 
-        wcdm = 'woltka tools collapse -i '
+        wcdm = 'woltka collapse -i '
         dbfk = db_files['kegg']
         if dbfk["orf-to-ko.map.xz"] is not None:
             woltka_cmds.append(f'{wcdm} per-gene.biom -m '
@@ -670,6 +672,13 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
             ainfo = qclient.get("/qiita_db/artifacts/%s/" % per_genome_id)
             aparams = ainfo['processing_parameters']
             ogu_fp = ainfo['files']['biom'][0]['filepath']
+            coverages_fp = ainfo['files']['plain_text'][0]['filepath']
+            with topen(coverages_fp, 'r:gz') as tgz:
+                member = tgz.getmember('coverage_percentage.txt')
+                coverages = tgz.extractfile(member)
+                coverages_df = pd.read_csv(
+                    coverages, sep='\t', header=None,
+                    names=[OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY])
 
             if 'Database' not in aparams or not ogu_fp.endswith('none.biom'):
                 error = ("The selected 'Woltka per-genome' artifact doesn't "
@@ -693,9 +702,9 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
     try:
         output = calc_ogu_cell_counts_per_g_of_sample_for_qiita(
             sample_info, prep, lin_regress_by_sample_id_fp,
-            ogu_counts_per_sample, ogu_lengths_fp,
-            int(parameters['read_length']), float(parameters['min_coverage']),
-            float(parameters['min_rsquared']))
+            ogu_counts_per_sample, coverages_df, ogu_lengths_fp,
+            min_coverage=float(parameters['min_coverage']),
+            min_rsquared=float(parameters['min_rsquared']))
     except Exception as e:
         return False, None, str(e)
 
