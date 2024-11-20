@@ -685,8 +685,14 @@ def calculate_cell_counts(qclient, job_id, parameters, out_dir):
                     member = tgz.getmember('coverage_percentage.txt')
                     coverages = tgz.extractfile(member)
                     coverages_df = pd.read_csv(
-                        coverages, sep='\t', header=None,
-                        names=[OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY])
+                        coverages, sep='\t', header=None)
+                # this is the micov generated format; the legacy format only
+                # has 2 columns
+                if coverages_df.shape[1] == 4:
+                    coverages_df = coverages_df.drop(columns=[1, 2])[1:]
+                coverages_df.columns = [OGU_ID_KEY, OGU_PERCENT_COVERAGE_KEY]
+                coverages_df[OGU_PERCENT_COVERAGE_KEY] = coverages_df[
+                    OGU_PERCENT_COVERAGE_KEY].astype(float)
 
                 ogu_counts_per_sample = load_table(ogu_fp)
 
