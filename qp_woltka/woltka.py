@@ -454,7 +454,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
 
     # the plasmid database should live in the same location than
     # synDNA_metagenomic
-    plamid_db = join(database_bowtie2.rsplit('/', 1), 'pUC57')
+    plamid_db = join(database_bowtie2.rsplit('/', 1)[0], 'pUC57')
     bowtie2_plasmids = f'bowtie2 -p {PPN} -x {plamid_db} ' + \
         '-q ${f}' +\
         '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
