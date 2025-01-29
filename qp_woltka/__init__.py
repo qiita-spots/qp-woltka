@@ -58,8 +58,8 @@ dflt_param_set = {
     'SynDNA': {'Database': db_path, 'min_sample_counts': 1},
 }
 syndna_cmd = QiitaCommand(
-    'Remove SynDNA reads', "Remove SynDNA reads using bowtie2 & woltka, and "
-    "generate even mates", woltka_syndna,
+    'Remove SynDNA inserts & plasmid reads', "Remove SynDNA reads using "
+    "bowtie2 & woltka, and generate even mates", woltka_syndna,
     req_params, opt_params, outputs, dflt_param_set)
 plugin.register_command(syndna_cmd)
 

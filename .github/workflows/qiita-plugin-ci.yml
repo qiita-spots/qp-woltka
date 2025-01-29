@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ dev ]
+    branches: [dev]
   pull_request:
 
 jobs:
@@ -80,7 +80,7 @@ jobs:
           conda activate qp-woltka
           # bowtie2==2.5.0 is what's installed in main qiita so making sure we keep
           # using the same version for consistency; note that we will need to force
-          conda install --yes -c bioconda bowtie2==2.5.0
+          conda install --yes -c bioconda bowtie2==2.5.0 seqkit
 
           pip --quiet install .
           pip --quiet install -U pip pip nose flake8
@@ -152,21 +152,21 @@ jobs:
 
       - uses: codecov/codecov-action@v1
         with:
-         token: ${{ secrets.CODECOV_TOKEN }}
-         file: codecov.yml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: codecov.yml
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - name: flake8
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: install dependencies
-      run: python -m pip install --upgrade pip
-    - name: Check out repository code
-      uses: actions/checkout@v2
-    - name: lint
-      run: |
-        pip --quiet install -q flake8
-        flake8 qp_woltka setup.py scripts/*
+      - name: flake8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: install dependencies
+        run: python -m pip install --upgrade pip
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: lint
+        run: |
+          pip --quiet install -q flake8
+          flake8 qp_woltka setup.py scripts/*
