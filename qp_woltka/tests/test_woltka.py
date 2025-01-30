@@ -463,11 +463,20 @@ class WoltkaTests(PluginTestCase):
             'while read -r sn f;\n',
             '  do\n',
             '    fn=`basename $f`; \n',
-            f'    bowtie2 -p 8 -x {database} -q '
-            '${f} -S $PWD/sams/${sn}.sam --seed 42 --very-sensitive -k 16 '
+            f'    bowtie2 -p 8 -x {database.rsplit("/")[0]}/pUC57 '
+            '-q ${f} --seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" '
+            '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" '
+            '--no-head --no-unal --no-exact-upfront --no-1mm-upfront '
+            "| sam_filter -i 0.98 -r 0.90 | awk '{print $1}' > "
+            '$PWD/reads/uneven/${fn/.gz/}.seqID.txt; seqkit grep -v '
+            '-f $PWD/reads/uneven/${fn/.gz/}.seqID.txt ${f} > '
+            '$PWD/reads/uneven/no-plasmid-${fn/.gz/}\n',
+            '    bowtie2 -p 8 -x {database} -q '
+            '$PWD/reads/uneven/no-plasmid-${fn/.gz/} '
+            '-S $PWD/sams/${sn}.sam --seed 42 --very-sensitive -k 16 '
             '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" --score-min '
-            '"L,0,-0.05" --no-head --no-unal --un '
-            '$PWD/reads/uneven/${fn/.gz/}\n',
+            'L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            '--no-1mm-upfront --un $PWD/reads/uneven/${fn/.gz/}\n',
             '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt\n',
             'date']
         self.assertEqual(main, exp_main)
@@ -490,7 +499,7 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             'sjobs=`ls sams/*.sam | wc -l`\n',
-            'if [[ $sruns -eq $sjobs ]]; then\n',
+            'if [[ $sruns -eq $((2*sjobs)) ]]; then\n',
             '  mkdir -p sams/final\n',
             '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
             'reads/uneven/${fwd} reads/uneven/${rev}; mv '
