@@ -465,7 +465,7 @@ class WoltkaTests(PluginTestCase):
             'while read -r sn f;\n',
             '  do\n',
             '    fn=`basename $f`; \n',
-            f'    bowtie2 -p 8 -x {database.rsplit("/")[0]}/pUC57 '
+            f'    bowtie2 -p 8 -x {database.rsplit("/", 1)[0]}/pUC57 '
             '-q ${f} --seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" '
             '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" '
             '--no-head --no-unal --no-exact-upfront --no-1mm-upfront '
