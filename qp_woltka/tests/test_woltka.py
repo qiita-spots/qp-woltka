@@ -473,11 +473,11 @@ class WoltkaTests(PluginTestCase):
             '$PWD/reads/uneven/${fn/.gz/}.seqID.txt; seqkit grep -v '
             '-f $PWD/reads/uneven/${fn/.gz/}.seqID.txt ${f} > '
             '$PWD/reads/uneven/no-plasmid-${fn/.gz/}\n',
-            '    bowtie2 -p 8 -x {database} -q '
+            f'    bowtie2 -p 8 -x {database} -q '
             '$PWD/reads/uneven/no-plasmid-${fn/.gz/} '
             '-S $PWD/sams/${sn}.sam --seed 42 --very-sensitive -k 16 '
             '--np 1 --mp "1,1" --rdg "0,1" --rfg "0,1" --score-min '
-            'L,0,-0.05" --no-head --no-unal --no-exact-upfront '
+            '"L,0,-0.05" --no-head --no-unal --no-exact-upfront '
             '--no-1mm-upfront --un $PWD/reads/uneven/${fn/.gz/}\n',
             '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt\n',
             'date']
