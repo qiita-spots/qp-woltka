@@ -507,7 +507,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     with open(main_fp, 'w') as job:
         job.write('\n'.join(lines))
 
-    memory = ceil(n_files * .8)
+    memory = ceil(n_files * 2)
     time = ceil(n_files * 15)
     # creating finish job
     lines = ['#!/bin/bash',

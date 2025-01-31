@@ -491,7 +491,7 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 15\n',
-            '#SBATCH --mem 1g\n',
+            '#SBATCH --mem 2g\n',
             f'#SBATCH --output {out_dir}/finish-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/finish-{job_id}.err\n',
             f'cd {out_dir}\n',
