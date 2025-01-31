@@ -36,7 +36,7 @@ def execute(url, job_id, out_dir):
         # available commands for this plugin
         valid_commands = [
             'Woltka v0.1.7, paired-end',
-            'Remove SynDNA reads', 'Calculate Cell Counts',
+            'Remove SynDNA inserts & plasmid reads', 'Calculate Cell Counts',
             'Calculate RNA Copy Counts']
 
         # this if/elif is the current solution for

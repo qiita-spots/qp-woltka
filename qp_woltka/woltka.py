@@ -275,7 +275,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
             '--extension sam.xz')
 
     memory = MEMORY
-    if 'RS210' in database_bowtie2:
+    if 'RS2' in database_bowtie2:
         memory = LARGE_MEMORY
 
     # all the setup pieces
@@ -291,6 +291,7 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --output {output}/{name}_%a.log',
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 0-{n_files}%{MAX_RUNNING}',
+             '#SBATCH --constraint="amd"',
              f'cd {output}',
              f'prep_full_path={preparation_information}',
              f'{environment}',
@@ -452,13 +453,25 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
         with open(join(output, f'sample_details_{n_files}.txt'), 'a+') as fh:
             fh.write(line)
 
-    # Bowtie2 command structure based on
-    # https://github.com/BenLangmead/bowtie2/issues/311
-    bowtie2 = f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
-              '-q ${f} -S $PWD/sams/${sn}.sam ' +\
-              '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
-              '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
-              '--no-head --no-unal --un $PWD/reads/uneven/${fn/.gz/}'
+    # the plasmid database should live in the same location than
+    # synDNA_metagenomic
+    plamid_db = join(database_bowtie2.rsplit('/', 1)[0], 'pUC57')
+    bowtie2_plasmids = f'bowtie2 -p {PPN} -x {plamid_db} ' + \
+        '-q ${f} ' +\
+        '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
+        '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
+        '--no-head --no-unal --no-exact-upfront --no-1mm-upfront' + \
+        " | sam_filter -i 0.98 -r 0.90 | awk '{print $1}' > " + \
+        '$PWD/reads/uneven/${fn/.gz/}.seqID.txt; seqkit grep -v -f ' + \
+        '$PWD/reads/uneven/${fn/.gz/}.seqID.txt ${f} > ' + \
+        '$PWD/reads/uneven/no-plasmid-${fn/.gz/}'
+
+    bowtie2_inserts = f'bowtie2 -p {PPN} -x {database_bowtie2} ' + \
+        '-q $PWD/reads/uneven/no-plasmid-${fn/.gz/} -S $PWD/sams/${sn}.sam ' +\
+        '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
+        '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
+        '--no-head --no-unal --no-exact-upfront --no-1mm-upfront ' + \
+        '--un $PWD/reads/uneven/${fn/.gz/}'
 
     # all the setup pieces
     lines = ['#!/bin/bash',
@@ -484,7 +497,8 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'while read -r sn f;',
              '  do',
              '    fn=`basename $f`; ',
-             f'    {bowtie2}',
+             f'    {bowtie2_plasmids}',
+             f'    {bowtie2_inserts}',
              '  done < sample_details_${SLURM_ARRAY_TASK_ID}.txt',
              'date']
 
@@ -493,7 +507,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     with open(main_fp, 'w') as job:
         job.write('\n'.join(lines))
 
-    memory = ceil(n_files * .8)
+    memory = ceil(n_files * 2)
     time = ceil(n_files * 15)
     # creating finish job
     lines = ['#!/bin/bash',
@@ -513,7 +527,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'echo $SLURM_JOBID',
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
              'sjobs=`ls sams/*.sam | wc -l`',
-             'if [[ $sruns -eq $sjobs ]]; then',
+             'if [[ $sruns -eq $((2*sjobs)) ]]; then',
              '  mkdir -p sams/final',
              f'{fastq_pair_cmd} done < '
              f'finish_sample_details.txt | parallel -j {PPN}',
