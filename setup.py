@@ -43,6 +43,7 @@ setup(name='qp-woltka',
       url='https://github.com/biocore/qiita',
       test_suite='nose.collector',
       packages=['qp_woltka'],
+      use_scm_version={'write_to': 'qp_woltka/version.py'},
       package_data={
         'qp_woltka': [
             'support_files/*',

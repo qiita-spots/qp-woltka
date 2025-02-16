@@ -83,7 +83,7 @@ jobs:
           conda install --yes -c bioconda bowtie2==2.5.0 seqkit
 
           pip --quiet install .
-          pip --quiet install -U pip pip nose flake8
+          pip --quiet install -U pip git nose flake8
           pip --quiet install git+https://github.com/qiita-spots/qiita_client.git#egg=qiita_client
 
           export QIITA_ROOTCA_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_rootca.crt
