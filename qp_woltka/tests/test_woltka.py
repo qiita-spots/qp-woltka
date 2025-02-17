@@ -449,11 +449,12 @@ class WoltkaTests(PluginTestCase):
             '#SBATCH -N 1\n',
             '#SBATCH -n 8\n',
             '#SBATCH --time 12:00:00\n',
-            '#SBATCH --mem 190g\n',
+            '#SBATCH --mem 5g\n',
             f'#SBATCH --output {out_dir}/{job_id}_%a.log\n',
             f'#SBATCH --error {out_dir}/{job_id}_%a.err\n',
             '#SBATCH --array 1-1%12\n',
             f'cd {out_dir}\n',
+            'set -e\n',
             'mkdir -p reads/uneven sams\n',
             f'{self.environment}\n',
             'date\n',
@@ -495,6 +496,7 @@ class WoltkaTests(PluginTestCase):
             f'#SBATCH --output {out_dir}/finish-{job_id}.log\n',
             f'#SBATCH --error {out_dir}/finish-{job_id}.err\n',
             f'cd {out_dir}\n',
+            'set -e\n',
             f'{self.environment}\n',
             'date\n',
             'hostname\n',
@@ -532,7 +534,6 @@ class WoltkaTests(PluginTestCase):
             '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;\n',
             'fi\n',
             f'finish_woltka {url} {job_id} {out_dir}\n',
-            'set -e\n',
             'date']
         self.assertEqual(finish, exp_finish)
 
