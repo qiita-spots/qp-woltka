@@ -33,7 +33,7 @@ TASKS_IN_SCRIPT = 10
 MEMORY = '100g'
 LARGE_MEMORY = '180g'
 MERGE_MEMORY = '80g'
-SYNDNA_MEMORY = '190g'
+SYNDNA_MEMORY = '5g'
 # setting so an iSeq run, generates 2 jobs
 BATCHSIZE = 50000000
 
@@ -486,6 +486,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
+             'set -e',
              'mkdir -p reads/uneven sams',
              f'{environment}',
              'date',  # start time
@@ -507,7 +508,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     with open(main_fp, 'w') as job:
         job.write('\n'.join(lines))
 
-    memory = ceil(n_files * 2)
+    memory = ceil(n_files * 6)
     time = ceil(n_files * 15)
     # creating finish job
     lines = ['#!/bin/bash',
@@ -521,6 +522,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --output {output}/finish-{name}.log',
              f'#SBATCH --error {output}/finish-{name}.err',
              f'cd {output}',
+             'set -e',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
@@ -554,7 +556,6 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;',
              'fi',
              f'finish_woltka {url} {name} {output}',
-             'set -e',
              "date"]
 
     finish_fp = join(output, f'{name}.finish.slurm')

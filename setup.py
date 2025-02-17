@@ -53,6 +53,7 @@ setup(name='qp-woltka',
       extras_require={'test': ["nose >= 0.10.1", "pep8"]},
       install_requires=['click >= 3.3', 'future', 'pandas >= 0.15', 'duckdb',
                         'h5py >= 2.3.1', 'biom-format', 'lxml',
+                        'setuptools_scm < 6.0',
                         # forcing 0.1.7 because Qiita uses this version
                         'polars-lts-cpu', 'woltka @ https://github.com/'
                         'qiyunzhu/woltka/archive/refs/tags/v0.1.7.zip',
