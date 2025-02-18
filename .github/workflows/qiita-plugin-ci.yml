@@ -80,11 +80,11 @@ jobs:
           conda activate qp-woltka
           # bowtie2==2.5.0 is what's installed in main qiita so making sure we keep
           # using the same version for consistency; note that we will need to force
-          conda install --yes -c bioconda bowtie2==2.5.0 seqkit
+          conda install --yes -c bioconda bowtie2==2.5.0 seqkit git
 
+          pip --quiet install -U pip nose flake8
+          pip --quiet install git+https://github.com/qiita-spots/qiita_client.git#egg=qiita_client
           pip --quiet install .
-          pip --quiet install -U pip pip nose flake8
-          pip --quiet install https://github.com/qiita-spots/qiita_client/archive/master.zip
 
           export QIITA_ROOTCA_CERT=`pwd`/qiita-dev/qiita_core/support_files/ci_rootca.crt
           export QIITA_CONFIG_FP=`pwd`/qiita-dev/qiita_core/support_files/config_test_local.cfg

@@ -33,7 +33,7 @@ TASKS_IN_SCRIPT = 10
 MEMORY = '100g'
 LARGE_MEMORY = '180g'
 MERGE_MEMORY = '80g'
-SYNDNA_MEMORY = '190g'
+SYNDNA_MEMORY = '5g'
 # setting so an iSeq run, generates 2 jobs
 BATCHSIZE = 50000000
 
@@ -95,19 +95,19 @@ def woltka_to_array(files, output, database_bowtie2, prep, url, name):
     rev_exists = 'raw_reverse_seqs' in df.file_type.unique()
 
     fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
-        lambda x: (x.filename.rsplit('_R1')[0],
+        lambda x: (x.filename.rsplit('_R1', 1)[0],
                    (x.filename, x.reads)), axis=1).values)
     if rev_exists:
         rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
-            lambda x: (x.filename.rsplit('_R2')[0],
+            lambda x: (x.filename.rsplit('_R2', 1)[0],
                        (x.filename, x.reads)), axis=1).values)
     # let's check that there is some overlap and if not try something different
     if rev_exists and not set(fwd) & set(rev):
         fwd = dict(df[df.file_type == 'raw_forward_seqs'].apply(
-            lambda x: (x.filename.rsplit('.R1.')[0],
+            lambda x: (x.filename.rsplit('.R1.', 1)[0],
                        (x.filename, x.reads)), axis=1).values)
         rev = dict(df[df.file_type == 'raw_reverse_seqs'].apply(
-            lambda x: (x.filename.rsplit('.R2.')[0],
+            lambda x: (x.filename.rsplit('.R2.', 1)[0],
                        (x.filename, x.reads)), axis=1).values)
         if not set(fwd) & set(rev):
             raise ValueError('There is no overlap between fwd/rev reads, if '
@@ -486,6 +486,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --error {output}/{name}_%a.err',
              f'#SBATCH --array 1-{n_files}%{MAX_RUNNING}',
              f'cd {output}',
+             'set -e',
              'mkdir -p reads/uneven sams',
              f'{environment}',
              'date',  # start time
@@ -507,7 +508,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
     with open(main_fp, 'w') as job:
         job.write('\n'.join(lines))
 
-    memory = ceil(n_files * 2)
+    memory = ceil(n_files * 6)
     time = ceil(n_files * 15)
     # creating finish job
     lines = ['#!/bin/bash',
@@ -521,6 +522,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              f'#SBATCH --output {output}/finish-{name}.log',
              f'#SBATCH --error {output}/finish-{name}.err',
              f'cd {output}',
+             'set -e',
              f'{environment}',
              'date',  # start time
              'hostname',  # executing system
@@ -554,7 +556,6 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              '  cd sams/final/; tar -cvf alignment.tar *.sam.xz; cd ../../;',
              'fi',
              f'finish_woltka {url} {name} {output}',
-             'set -e',
              "date"]
 
     finish_fp = join(output, f'{name}.finish.slurm')
