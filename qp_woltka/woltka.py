@@ -539,7 +539,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
              'echo $SLURM_JOBID',
              "sruns=`grep 'overall alignment rate' *.err | wc -l`",
              'sjobs=`ls sams/*.sam | wc -l`',
-             'if [[ $sruns -eq $((2*sjobs)) ]]; then',
+             'if [[ $sruns -eq $((3*sjobs)) ]]; then',
              '  mkdir -p sams/final',
              f'{fastq_pair_cmd} done < '
              f'finish_sample_details.txt | parallel -j {PPN}',

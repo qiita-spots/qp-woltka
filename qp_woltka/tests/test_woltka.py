@@ -511,7 +511,7 @@ class WoltkaTests(PluginTestCase):
             'echo $SLURM_JOBID\n',
             "sruns=`grep 'overall alignment rate' *.err | wc -l`\n",
             'sjobs=`ls sams/*.sam | wc -l`\n',
-            'if [[ $sruns -eq $((2*sjobs)) ]]; then\n',
+            'if [[ $sruns -eq $((3*sjobs)) ]]; then\n',
             '  mkdir -p sams/final\n',
             '  while read -r fwd rev; do echo "fastq_pair -t 50000000 '
             'reads/uneven/${fwd} reads/uneven/${rev}; mv '
