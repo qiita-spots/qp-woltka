@@ -36,8 +36,8 @@ def execute(url, job_id, out_dir):
         # available commands for this plugin
         valid_commands = [
             'Woltka v0.1.7, paired-end',
-            'Remove SynDNA plasmid, insert, & CP026085 reads', 'Calculate Cell Counts',
-            'Calculate RNA Copy Counts']
+            'Remove SynDNA plasmid, insert, & CP026085 reads',
+            'Calculate Cell Counts', 'Calculate RNA Copy Counts']
 
         # this if/elif is the current solution for
         # https://github.com/qiita-spots/qiita/issues/3340

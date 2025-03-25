@@ -475,7 +475,7 @@ def woltka_syndna_to_array(files, output, database_bowtie2, prep, url, name):
 
     ecoli_db = join(database_bowtie2.rsplit('/', 1)[0], 'CP026085')
     bowtie2_ecoli = f'bowtie2 -p {PPN} -x {ecoli_db} ' + \
-        '-q $PWD/reads/uneven/no-plasmid-inserts-${fn/.gz/} '
+        '-q $PWD/reads/uneven/no-plasmid-inserts-${fn/.gz/} ' + \
         '-S $PWD/reads/uneven/no-plasmid-inserts-${sn}.sam ' +\
         '--seed 42 --very-sensitive -k 16 --np 1 --mp "1,1" ' + \
         '--rdg "0,1" --rfg "0,1" --score-min "L,0,-0.05" ' + \
